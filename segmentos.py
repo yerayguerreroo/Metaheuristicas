@@ -1,7 +1,5 @@
 import random
 
-
-#Falta añadir la condicion de que los segmentos sean minimo de 2 elementos
 def generar_segmentos(num_segmentos, numero_puntos_serie):
     num_cortes = num_segmentos - 1
     if numero_puntos_serie < (num_cortes + 1) * 2:

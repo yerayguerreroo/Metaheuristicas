@@ -1,20 +1,18 @@
 # random_search/main.py
-import auxiliar
 from .metrics import segment_report
 from .search import SearchConfig, optimize_cuts
-from .plotting import plot_series_with_piecewise_lines   # <-- AÑADE ESTO
+from .plotting import plot_series_with_piecewise_lines
+import cronometro
 
 
 def random_search(serie, num_segmentos) -> None:
 
     cfg = SearchConfig(
         num_segmentos,
-        epochs=200,
-        candidates_per_epoch=50,
-        p_random=0.25,
-        seed=123,
+        epochs=50000,
     )
 
+    cronometro.comenzar_cronometro()
     best_cuts, best_rmse = optimize_cuts(serie, cfg)
 
     print("\n===== MEJOR SOLUCIÓN =====")
@@ -24,6 +22,7 @@ def random_search(serie, num_segmentos) -> None:
     print("\nDetalle por segmento:")
     segment_report(serie, best_cuts, verbose=True)
 
+    cronometro.parar_cronometro()
     # --- DIBUJO ---
     plot_series_with_piecewise_lines(
         serie,
