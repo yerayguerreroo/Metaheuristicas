@@ -37,9 +37,8 @@ def es_valido(cortes, n):
     # Para que un segmento tenga 2 puntos, la diferencia debe ser al menos 1 
     # (ej. corte en 5 y corte en 6 incluye puntos 5 y 6)
     for i in range(len(cortes)-1):
-        if cortes[i+1] - cortes[i] < 1:
+        if cortes[i+1] - cortes[i]< 1:
             return False
-            
     return True
 
 def ejecutar_hill_climbing(archivo_txt, k_segmentos):
