@@ -1,4 +1,6 @@
 from random_search.main import random_search
+from hill_climbing.main import hill_climbing
+from simulated_annealing.main import simulated_annealing
 import numpy as np
 
 #Función para cargar datos
@@ -13,7 +15,7 @@ def cargar_datos(filename):
 
 def menu():
     configuracion = {
-        '1' : {'file' : 'TS1.txt', 'k' : 9},
+        '1' :{'file' : 'TS1.txt', 'k' : 9},
         '2': {'file': 'TS2.txt', 'k': 10},
         '3': {'file': 'TS3.txt', 'k': 20},
         '4': {'file': 'TS4.txt', 'k': 50}
@@ -48,11 +50,13 @@ def menu():
                 if eleccion == 'a':
                     random_search(datos, serie['k'])
                 elif eleccion == 'b':
-                    metricas(None, datos, serie['k'], "Hill Climbing")
+                    mejores_cortes, error_final = hill_climbing(datos ,serie['file'], serie['k'])
+                    print(f"RESULTADO FINAL {serie['file']}:")
+                    print(f"Cortes: {mejores_cortes}")
+                    print(f"RMSE Promedio: {error_final:.6f}\n")
                 elif eleccion == 'c':
-                    metricas(None, datos, serie['k'], "Simulated Annealing")
+                    simulated_annealing(T0, alpha, L, Tf, datos)
                 elif eleccion == 'd':
-                    
                     for nombre in ["Búsqueda Aleatoria", "Hill Climbing", "Simulated Annealing"]:
                         ejecutar_experimento(None, datos, serie['k'], nombre)
         

@@ -1,5 +1,5 @@
 import segmentos
-import metrics
+import simulated_annealing.metrics
 from auxiliar import cargar_datos
 import numpy as np
 import math

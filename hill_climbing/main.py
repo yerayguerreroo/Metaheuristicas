@@ -2,7 +2,6 @@ import numpy as np
 import mrse
 import segmentos
 import auxiliar
-from main import cargar_datos
 
 def calcular_error_total(y, cortes):
     """
@@ -41,17 +40,16 @@ def es_valido(cortes, n):
             return False
     return True
 
-def ejecutar_hill_climbing(archivo_txt, k_segmentos):
+def hill_climbing(datos, archivo_txt, k_segmentos):
     """
     Implementación de Hill Climbing para optimizar los puntos de corte.
     """
     # 1. Cargar datos usando tu función de main.py
-    y = cargar_datos(archivo_txt)
+    y = datos
     n = len(y)
-    num_cortes = k_segmentos - 1
     
     # 2. Generar solución inicial usando tu función de segmentos.py
-    solucion_actual = segmentos.generar_segmentos(num_cortes, n)
+    solucion_actual = segmentos.generar_segmentos(k_segmentos, n)
     error_actual = calcular_error_total(y, solucion_actual)
     
     print(f"--- Iniciando Hill Climbing para {archivo_txt} (k={k_segmentos}) ---")
@@ -100,7 +98,7 @@ if __name__ == "__main__":
     ]
     
     for archivo, k in configuraciones:
-        mejores_cortes, error_final = ejecutar_hill_climbing(archivo, k)
+        mejores_cortes, error_final = hill_climbing(archivo, k)
         print(f"RESULTADO FINAL {archivo}:")
         print(f"Cortes: {mejores_cortes}")
         print(f"RMSE Promedio: {error_final:.6f}\n")
