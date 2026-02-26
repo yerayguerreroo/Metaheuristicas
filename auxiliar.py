@@ -39,3 +39,5 @@ def cargar_datos(filename):
     except FileNotFoundError:
         print(f"Error: No se encontró el archivo {filename}")
         return None
+
+

@@ -4,6 +4,7 @@ from auxiliar import cargar_datos
 import numpy as np
 import math
 import random
+import metrics
 
 def main(): 
     serie = cargar_datos("./TS1.txt") #ejemplo hardcoded con ts1
