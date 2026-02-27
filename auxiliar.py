@@ -12,8 +12,9 @@ def cuts_to_segments_shared(cuts, n):
     """
     cuts = list(map(int, cuts))
 
-    if any(cuts[i] >= cuts[i+1] for i in range(len(cuts)-1)):
-        raise ValueError("cuts debe ser estrictamente creciente.")
+    for i in range(len(cuts)-1):
+        if(cuts[i] >= cuts[i+1]):
+            raise ValueError("cuts debe ser estrictamente creciente.")
 
     if len(cuts) == 0:
         return [(0, n)]

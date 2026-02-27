@@ -55,7 +55,17 @@ def menu():
                     print(f"Cortes: {mejores_cortes}")
                     print(f"RMSE Promedio: {error_final:.6f}\n")
                 elif eleccion == 'c':
-                    simulated_annealing(T0, alpha, L, Tf, datos)
+                    T0 = 100
+                    alpha = .8
+                    L = serie['k'] * 5
+                    Tf = 0.01
+                    origen, og_err, solucion, error = simulated_annealing(T0, alpha, L, Tf, serie['k'],datos)
+                    print(f"RESULTADO INICIAL {serie['file']}:")
+                    print(f"Cortes: {origen}")
+                    print(f"RMSE Promedio: {og_err:.6f}\n")
+                    print(f"RESULTADO FINAL {serie['file']}:")
+                    print(f"Cortes: {solucion}")
+                    print(f"RMSE Promedio: {error:.6f}\n")
                 elif eleccion == 'd':
                     for nombre in ["Búsqueda Aleatoria", "Hill Climbing", "Simulated Annealing"]:
                         ejecutar_experimento(None, datos, serie['k'], nombre)

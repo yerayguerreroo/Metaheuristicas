@@ -1,10 +1,10 @@
 import segmentos
-import simulated_annealing.metrics
+import simulated_annealing.metrics as metrics
 from auxiliar import cargar_datos
 import numpy as np
+import copy 
 import math
 import random
-import metrics
 
 def main(): 
     serie = cargar_datos("./TS1.txt") #ejemplo hardcoded con ts1
@@ -26,24 +26,31 @@ def main():
 #Funcion objetivo: reducir el rmse global
 #calcular L
 
-def simulated_annealing(T0, alpha, L, Tf, serie):
+def simulated_annealing(T0, alpha, L, Tf, k, serie):
     # alpha = [0,1]
     T = T0
-    s = segmentos.generar_segmentos() #Funcion de los cortes
-    while (T >= Tf):
-        vecindario = generarVecindario(s, serie.size())
-        L = len(vecindario)-1
-        for count in range(0, L):
-            s_cand = vecindario[count] #Segmento con el nuevo corte en base al vecindario de s
-            delta = metrics.global_rmse_for_cuts(serie, s) - metrics.global_rmse_for_cuts(serie, s_cand)
+    s = segmentos.generar_segmentos(k, len(serie)) #Funcion de los cortes
+    vecindario = generarVecindario(s,len(serie))
+    origen = s
+    og_err = metrics.global_rmse_for_cuts(serie, origen)
+    print(f"s = {s}\n")
 
+    while (T >= Tf):
+        for count in range(0, L):
+            vecindario = generarVecindario(s, len(serie))
+            pos = random.randint(0, len(vecindario)-1)
+            s_cand = vecindario[pos] #Segmento con el nuevo corte en base al vecindario de s
+            delta = metrics.global_rmse_for_cuts(serie, s_cand) - metrics.global_rmse_for_cuts(serie, s)
             # U(0,1) = random.random() 
             # e^(-S/T) para T baja e^(-S/T) aprox 0 => No se cumple la condicion
 
-            if (random.random() < math.exp(-delta / T)) or (delta < 0):
+            if ((random.random() < math.exp(-delta / T)) or (delta < 0)):
                 s = s_cand
+
+            print(f"{s_cand} : delta = {delta} : improved => {delta < 0}")
+
         T *= alpha # alpha < 1 -> T disminuye (cooling)
-    return s
+    return origen, og_err, s, metrics.global_rmse_for_cuts(serie,s)
 
 def generarVecindario(solucion, n):
     # Creamos el vecindario entero para una solución s
@@ -63,14 +70,25 @@ def generarVecindario(solucion, n):
 
     vecindario = []
     for count in range(len(solucion)):
-        vecino = solucion.copy()
-        vecino[count] -= 1 # [2,7] | [3,6]
-        if (metrics.es_valido(vecino,n)):
-            vecindario.append(vecino)
-        vecino[count] += 2 # [4,7] | [3,8]
-        if(metrics.es_valido(vecino,n)):
-            vecindario.append(vecino)    
-    
+        v_up = solucion.copy()
+        v_down = solucion.copy()
+
+        v_up[count] += 1 # [2,7] | [3,6]
+        if (metrics.es_valido(v_up,n)):
+            print(f"{v_up}")
+            vecindario.append(v_up)
+        else:
+            print("Denied -1")
+            print(f"{v_up}\n")
+
+        v_down[count] -= 1 # [2,7] | [3,6]
+        if (metrics.es_valido(v_down,n)):
+            print(f"{v_down}")
+            vecindario.append(v_down)
+        else:
+            print("Denied -1")
+            print(f"{v_down}\n")
+
     return vecindario
 
 if __name__ == "__main__":

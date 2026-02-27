@@ -93,8 +93,8 @@ if __name__ == "__main__":
     configuraciones = [
         ('TS1.txt', 9),
         ('TS2.txt', 10),
-        # ('TS3.txt', 20),
-        # ('TS4.txt', 50),
+        ('TS3.txt', 20),
+        ('TS4.txt', 50),
     ]
     
     for archivo, k in configuraciones:
