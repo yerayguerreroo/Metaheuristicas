@@ -1,6 +1,7 @@
 from random_search.main import random_search
 from hill_climbing.main import hill_climbing
 from simulated_annealing.main import simulated_annealing
+from simulated_annealing.plotting import plot_series_with_piecewise_lines
 import numpy as np
 
 #Función para cargar datos
@@ -66,6 +67,17 @@ def menu():
                     print(f"RESULTADO FINAL {serie['file']}:")
                     print(f"Cortes: {solucion}")
                     print(f"RMSE Promedio: {error:.6f}\n")
+
+                    # gráfica debugging
+
+                    plot_series_with_piecewise_lines(
+                        datos,
+                        solucion,
+                        show_cuts=True,
+                        title="TS1 + rectas por segmentos (mejor solución)",
+                        save_path="./simulated_annealing/resultados/resultado_ts1.png",
+                    )
+
                 elif eleccion == 'd':
                     for nombre in ["Búsqueda Aleatoria", "Hill Climbing", "Simulated Annealing"]:
                         ejecutar_experimento(None, datos, serie['k'], nombre)

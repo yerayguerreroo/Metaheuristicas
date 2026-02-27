@@ -86,6 +86,7 @@ def hill_climbing(datos, archivo_txt, k_segmentos):
             print(f"Iteración {paso_iteracion}, Error actual: {error_actual:.6f}")
 
     print(f"Máximo local (óptimo de error) alcanzado.")
+
     return solucion_actual, error_actual
 
 if __name__ == "__main__":
