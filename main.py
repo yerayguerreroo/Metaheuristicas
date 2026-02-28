@@ -67,7 +67,7 @@ def menu():
                     # simulated_annealing(T0, alpha, L, Tf, serie,datos)
                     reporte_SA(
                         simulated_annealing,
-                        repeticiones=1000,
+                        repeticiones=20,
                         T0=T0,
                         alpha=alpha,
                         L=L,
@@ -93,6 +93,14 @@ if __name__ == "__main__":
     # alpha = .95
     # L = serie['k'] * 4
     # Tf = 0.001
+    # Ejecuciones: 1000
+    # Media RMSE: 0.829951
+    # Desviación típica RMSE: 0.344968
+    # Mejora Media (G): 60.41243191379893%
+    # Mejor RMSE: 0.418282
+    # Peor RMSE: 2.270234
+    # Media tiempo: 1.677s
+    # Desviación tiempo: 0.373s
 
 # Muy bueno: ≤ 0.45 (si estás por aquí, vas fino)
 # Bueno: 0.45 – 0.65

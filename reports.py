@@ -32,6 +32,8 @@ def reporte_SA(simulated_annealing_fn, repeticiones,
     print(f"Media tiempo: {stats.mean(tiempos):.3f}s")
     print(f"Desviación tiempo: {stats.stdev(tiempos):.3f}s\n")
 
+
+    #Debería de añadir los valores base para hacer el reporte mejor
     resumen = {
       "media_rmse": stats.mean(rmses),
       "std_rmse": stats.stdev(rmses) if len(rmses) > 1 else 0,
