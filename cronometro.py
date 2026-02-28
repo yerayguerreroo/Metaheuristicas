@@ -22,3 +22,5 @@ def parar_cronometro():
     
     # Reiniciamos la variable para el siguiente uso
     inicio_tiempo = None
+
+    return tiempo_transcurrido;

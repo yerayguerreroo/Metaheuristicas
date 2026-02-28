@@ -2,6 +2,7 @@ from random_search.main import random_search
 from hill_climbing.main import hill_climbing
 from simulated_annealing.main import simulated_annealing
 from simulated_annealing.plotting import plot_series_with_piecewise_lines
+from reports import  reporte_SA
 import numpy as np
 
 #Función para cargar datos
@@ -63,7 +64,17 @@ def menu():
                     L = serie['k'] * 4
                     Tf = 0.001
 
-                    simulated_annealing(T0, alpha, L, Tf, serie,datos)
+                    # simulated_annealing(T0, alpha, L, Tf, serie,datos)
+                    reporte_SA(
+                        simulated_annealing,
+                        repeticiones=1000,
+                        T0=T0,
+                        alpha=alpha,
+                        L=L,
+                        Tf=Tf,
+                        file=serie,
+                        serie=datos
+                    )
                     # gráfica debugging
 
                 elif eleccion == 'd':

@@ -86,48 +86,55 @@ def simulated_annealing(T0, alpha, L, Tf, file, serie):
                     best_rmse = RMSE_s
                     best_ans = s.copy()
 
-                print(f"{s_cand} : delta = {delta} : improved => {delta < 0} : {rn} < {math.exp(-delta / T)}")
-            else:
-                print(f"{s_cand}")
+                # print(f"{s_cand} : delta = {delta} : improved => {delta < 0} : {rn} < {math.exp(-delta / T)}")
             tot+=1
 
 
         T *= alpha # alpha < 1 -> T disminuye (cooling)
 
-    cronometro.parar_cronometro()
+    # print(f"step = {step_max}")
+    # print(f"points = {len(serie)}")
+    # print(f"%step = {step/len(serie)}")
 
-    print(f"step = {step_max}")
-    print(f"points = {len(serie)}")
-    print(f"%step = {step/len(serie)}")
+    # print(f"cont = {cont}")
+    # print(f"tot = {tot}")
+    # print(f"mejores = {mejores}")
+    # print(f"%cambios = {(cont/tot)*100:.3f}\n")
 
-    print(f"cont = {cont}")
-    print(f"tot = {tot}")
-    print(f"mejores = {mejores}")
-    print(f"%cambios = {(cont/tot)*100:.3f}\n")
+    # print(f"RESULTADO INICIAL {file['file']}:")
+    # print(f"Cortes: {origen}")
+    # print(f"RMSE Promedio: {og_err:.6f}\n")
+    # print(f"RESULTADO FINAL {file['file']}:")
+    # print(f"Cortes: {best_ans}")
+    # print(f"RMSE Promedio: {best_rmse:.6f}\n")
 
-    print(f"RESULTADO INICIAL {file['file']}:")
-    print(f"Cortes: {origen}")
-    print(f"RMSE Promedio: {og_err:.6f}\n")
-    print(f"RESULTADO FINAL {file['file']}:")
-    print(f"Cortes: {best_ans}")
-    print(f"RMSE Promedio: {best_rmse:.6f}\n")
-
-    plot_series_with_piecewise_lines(
-        serie,
-        origen,
-        show_cuts=True,
-        title=f"{file['file']} + rectas por segmentos (solución inicial)",
-        save_path="./simulated_annealing/inicios/resultado_ts1.png",
-    )
+    # plot_series_with_piecewise_lines(
+    #     serie,
+    #     origen,
+    #     show_cuts=True,
+    #     title=f"{file['file']} + rectas por segmentos (solución inicial)",
+    #     save_path="./simulated_annealing/inicios/resultado_ts1.png",
+    # )
 
 
-    plot_series_with_piecewise_lines(
-        serie,
-        best_ans,
-        show_cuts=True,
-        title=f"{file['file']} + rectas por segmentos (mejor solución)",
-        save_path="./simulated_annealing/resultados/resultado_ts1.png",
-    )
+    # plot_series_with_piecewise_lines(
+    #     serie,
+    #     best_ans,
+    #     show_cuts=True,
+    #     title=f"{file['file']} + rectas por segmentos (mejor solución)",
+    #     save_path="./simulated_annealing/resultados/resultado_ts1.png",
+    # )
+
+    return {
+        "rmse_inicial": og_err,
+        "rmse_final": best_rmse,
+        "mejor_sol": best_ans,
+        "sol_inicial": origen,
+        "aceptados": cont,
+        "total_movimientos": tot,
+        "mejoras": mejores,
+        "tiempo": cronometro.parar_cronometro()
+    }
 
 def generarVecino(cuts, n, step):
     # Alternativa para no tener que generar un vecindario gigantesco
