@@ -55,28 +55,16 @@ def menu():
                     print(f"RESULTADO FINAL {serie['file']}:")
                     print(f"Cortes: {mejores_cortes}")
                     print(f"RMSE Promedio: {error_final:.6f}\n")
+
                 elif eleccion == 'c':
-                    T0 = 100
-                    alpha = .8
-                    L = serie['k'] * 5
-                    Tf = 0.01
-                    origen, og_err, solucion, error = simulated_annealing(T0, alpha, L, Tf, serie['k'],datos)
-                    print(f"RESULTADO INICIAL {serie['file']}:")
-                    print(f"Cortes: {origen}")
-                    print(f"RMSE Promedio: {og_err:.6f}\n")
-                    print(f"RESULTADO FINAL {serie['file']}:")
-                    print(f"Cortes: {solucion}")
-                    print(f"RMSE Promedio: {error:.6f}\n")
 
+                    T0 = 0.1
+                    alpha = .95
+                    L = serie['k'] * 4
+                    Tf = 0.001
+
+                    simulated_annealing(T0, alpha, L, Tf, serie,datos)
                     # gráfica debugging
-
-                    plot_series_with_piecewise_lines(
-                        datos,
-                        solucion,
-                        show_cuts=True,
-                        title="TS1 + rectas por segmentos (mejor solución)",
-                        save_path="./simulated_annealing/resultados/resultado_ts1.png",
-                    )
 
                 elif eleccion == 'd':
                     for nombre in ["Búsqueda Aleatoria", "Hill Climbing", "Simulated Annealing"]:
@@ -87,3 +75,36 @@ def menu():
 
 if __name__ == "__main__":
     menu()
+
+# TS1.txt (k = 9)
+
+    # T0 = 0.1
+    # alpha = .95
+    # L = serie['k'] * 4
+    # Tf = 0.001
+
+# Muy bueno: ≤ 0.45 (si estás por aquí, vas fino)
+# Bueno: 0.45 – 0.65
+# Aceptable: 0.65 – 1.00
+# Malo: > 1.00
+
+# TS2.txt (k = 10)
+
+# Muy bueno: ≤ 0.90
+# Bueno: 0.90 – 1.20
+# Aceptable: 1.20 – 1.60
+# Malo: > 1.60
+
+# TS3.txt (k = 20)
+
+# Muy bueno: ≤ 0.85
+# Bueno: 0.85 – 0.95
+# Aceptable: 0.95 – 1.05
+# Malo: > 1.05
+
+# TS4.txt (k = 50)
+
+# Muy bueno: ≤ 1.30
+# Bueno: 1.30 – 1.55
+# Aceptable: 1.55 – 1.80
+# Malo: > 1.80

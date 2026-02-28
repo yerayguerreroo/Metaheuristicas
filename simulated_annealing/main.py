@@ -6,6 +6,7 @@ import copy
 import math
 import random
 from .plotting import plot_series_with_piecewise_lines
+import cronometro
 
 def main(): 
     serie = cargar_datos("./TS1.txt") #ejemplo hardcoded con ts1
@@ -27,38 +28,124 @@ def main():
 #Funcion objetivo: reducir el rmse global
 #calcular L
 
-def simulated_annealing(T0, alpha, L, Tf, k, serie):
-    # alpha = [0,1]
+def simulated_annealing(T0, alpha, L, Tf, file, serie):
+    
     T = T0
-    s = segmentos.generar_segmentos(k, len(serie)) 
+    n = len(serie)
+    cont = 0 #aceptados
+    mejores = 0
+    tot = 0 #hechos
+
+    cronometro.comenzar_cronometro()
+    s = segmentos.generar_segmentos(file['k'], n)
     origen = s
-    c_step = int(.4 * len(serie))
-    vecindario = generarVecindario(s,len(serie),c_step)
-    RMSE_s = metrics.global_rmse_for_cuts(serie, origen)
+
+    #Cache para hacer más eficiente esto
+    # Simplemente para ahorrar recursos ya esta
+    #Nos ahorra muchos usos de RMSE()
+    rmse_cache = {}
+
+    def rmse_of(cuts):
+        key = tuple(cuts)
+        if key not in rmse_cache:
+            rmse_cache[key] = metrics.global_rmse_for_cuts(serie, cuts)
+        return rmse_cache[key]
+
+    RMSE_s = rmse_of(s)
     og_err = RMSE_s
 
-    while (T >= Tf):
-        # Se podría meter en una función
-        mp = (T-Tf) / (T0-Tf)
-        step = max(1, int(round(c_step * mp)))
+    best_ans = s.copy()
+    best_rmse = RMSE_s
 
-        for i in range(0, L):
-            vecindario = generarVecindario(s, len(serie), step)
-            pos = random.randint(0, len(vecindario)-1)
-            s_cand = vecindario[pos] #Segmento con el nuevo corte en base al vecindario de s, posicion aleatoria
-            delta = metrics.global_rmse_for_cuts(serie, s_cand) - RMSE_s
+    step_max = min(int(round(.07 * n)), max(3, int(round(0.25 * (n / file['k'])))))
+
+    while T >= Tf:
+        # Se podría meter en una función
+        
+        mp = (T-Tf) / (T0-Tf)
+        step = max(1, int(round(step_max * mp)))
+
+        for _ in range(L):
+            s_cand = generarVecino(s, len(serie), step) #Segmento con el nuevo corte en base al vecindario de s, posicion aleatoria
+            if s_cand is None : continue
+            # Casi imposible pero asi tratamos la excepcion de generarVecino()
+
+            RMSE_cand = rmse_of(s_cand)
+            delta = RMSE_cand - RMSE_s
             # U(0,1) = random.random() 
             # e^(-S/T) para T baja e^(-S/T) aprox 0 => No se cumple la condicion
 
-            if ((random.random() < math.exp(-delta / T)) or (delta < 0)):
+            rn = random.random()
+            if delta < 0 or rn < math.exp(-delta / T):
                 s = s_cand
-                RMSE_s = metrics.global_rmse_for_cuts(serie, s)
+                RMSE_s = RMSE_cand
+                cont+=1
 
-            print(f"{s_cand} : delta = {delta} : improved => {delta < 0}")
+                if RMSE_s < best_rmse:
+                    mejores+=1
+                    best_rmse = RMSE_s
+                    best_ans = s.copy()
+
+                print(f"{s_cand} : delta = {delta} : improved => {delta < 0} : {rn} < {math.exp(-delta / T)}")
+            else:
+                print(f"{s_cand}")
+            tot+=1
+
 
         T *= alpha # alpha < 1 -> T disminuye (cooling)
 
-    return origen, og_err, s, RMSE_s
+    cronometro.parar_cronometro()
+
+    print(f"step = {step_max}")
+    print(f"points = {len(serie)}")
+    print(f"%step = {step/len(serie)}")
+
+    print(f"cont = {cont}")
+    print(f"tot = {tot}")
+    print(f"mejores = {mejores}")
+    print(f"%cambios = {(cont/tot)*100:.3f}\n")
+
+    print(f"RESULTADO INICIAL {file['file']}:")
+    print(f"Cortes: {origen}")
+    print(f"RMSE Promedio: {og_err:.6f}\n")
+    print(f"RESULTADO FINAL {file['file']}:")
+    print(f"Cortes: {best_ans}")
+    print(f"RMSE Promedio: {best_rmse:.6f}\n")
+
+    plot_series_with_piecewise_lines(
+        serie,
+        origen,
+        show_cuts=True,
+        title=f"{file['file']} + rectas por segmentos (solución inicial)",
+        save_path="./simulated_annealing/inicios/resultado_ts1.png",
+    )
+
+
+    plot_series_with_piecewise_lines(
+        serie,
+        best_ans,
+        show_cuts=True,
+        title=f"{file['file']} + rectas por segmentos (mejor solución)",
+        save_path="./simulated_annealing/resultados/resultado_ts1.png",
+    )
+
+def generarVecino(cuts, n, step):
+    # Alternativa para no tener que generar un vecindario gigantesco
+
+    attempts = 20
+
+    for _ in range(attempts):
+        v = cuts.copy()
+        i = random.randrange(len(v))
+        d = random.randint(1, step)
+        if(random.random() < .5): sign = 1
+        else: sign = -1
+        v[i] += sign * d
+
+        if metrics.es_valido(v, n):
+            return v
+
+    return None
 
 def generarVecindario(solucion, n, step):
     # Creamos el vecindario entero para una solución s

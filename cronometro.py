@@ -17,8 +17,8 @@ def parar_cronometro():
     fin_tiempo = time.time()
     tiempo_transcurrido = fin_tiempo - inicio_tiempo
     
-    print(f"Cronómetro detenido.")
-    print(f"Tiempo total: {tiempo_transcurrido:.2f} segundos")
+    print(f"\nCronómetro detenido.")
+    print(f"Tiempo total: {tiempo_transcurrido:.2f} segundos\n")
     
     # Reiniciamos la variable para el siguiente uso
     inicio_tiempo = None
