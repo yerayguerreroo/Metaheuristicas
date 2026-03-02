@@ -60,8 +60,7 @@ def menu():
                 elif eleccion == 'c':
 
                     T0 = 0.1
-                    alpha = .95
-                    L = serie['k']
+                    alpha = .99
                     Tf = 0.001
 
                     # simulated_annealing(T0, alpha, L, Tf, serie,datos)
@@ -70,7 +69,6 @@ def menu():
                         repeticiones=500,
                         T0=T0,
                         alpha=alpha,
-                        L=L,
                         Tf=Tf,
                         file=serie,
                         serie=datos

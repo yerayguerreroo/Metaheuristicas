@@ -1,8 +1,9 @@
 from openpyxl import Workbook
 import json
 import os
+import datetime
 
-def exportar_reporte_excel(resumen, dir, filename="reporte_SA.xlsx"):
+def exportar_reporte_excel(resumen, dir, filename=""):
     """
     Exporta un diccionario tipo resumen a un archivo Excel.
     Mantiene tu formato: exportar_reporte_excel(resumen, dir, filename).
@@ -48,6 +49,9 @@ def exportar_reporte_excel(resumen, dir, filename="reporte_SA.xlsx"):
 
     # Guardar archivo (asegurar dir correcto)
     os.makedirs(dir, exist_ok=True)  # crea carpeta si no existe
+    time = datetime.datetime.now()
+    date = time.strftime("%d-%m-%y-%H-%M")
+    filename= f"SA_{resumen['repeticiones']}_{date}.xls"
     path = os.path.join(dir, filename)
     wb.save(path)
 

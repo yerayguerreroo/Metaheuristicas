@@ -3,7 +3,7 @@ from excel import exportar_reporte_excel
 import random
 
 def reporte_SA(simulated_annealing_fn, repeticiones,
-                      T0, alpha, L, Tf, file, serie):
+                      T0, alpha, Tf, file, serie):
     
 
     def G(rmse_0, rmse_f):
@@ -14,7 +14,7 @@ def reporte_SA(simulated_annealing_fn, repeticiones,
     for i in range(repeticiones):
         random.seed()  # distinta semilla cada vez
 
-        res = simulated_annealing_fn(T0, alpha, L, Tf, file, serie)
+        res = simulated_annealing_fn(T0, alpha, Tf, file, serie)
         resultados.append(res)
 
     rmses = [r["rmse_final"] for r in resultados]
@@ -35,6 +35,11 @@ def reporte_SA(simulated_annealing_fn, repeticiones,
 
     #Debería de añadir los valores base para hacer el reporte mejor
     resumen = {
+      "file": file['file'],
+      "repeticiones": repeticiones,
+      "T0": T0,
+      "Tf": Tf,
+      "alpha": alpha,
       "media_rmse": stats.mean(rmses),
       "std_rmse": stats.stdev(rmses) if len(rmses) > 1 else 0,
       "%_rmse": stats.mean(mejoras),
@@ -45,5 +50,7 @@ def reporte_SA(simulated_annealing_fn, repeticiones,
       "resultados_individuales": resultados
     }
 
-    path = exportar_reporte_excel(resumen, "./simulated_annealing/excel/")
+    file_serie = file['file'].split('.')[0]
+    print(f"./simulated_annealing/excel/{file_serie}/")
+    path = exportar_reporte_excel(resumen, f"./simulated_annealing/excel/{file_serie}")
     print(f"Guardado en {path}")
