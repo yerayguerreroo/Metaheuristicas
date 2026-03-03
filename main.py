@@ -2,7 +2,7 @@ from random_search.main import random_search
 from hill_climbing.main import hill_climbing, hill_climbing_maxima_pendiente
 from simulated_annealing.main import simulated_annealing
 from simulated_annealing.plotting import plot_series_with_piecewise_lines
-from reports import  reporte_SA
+from reports import  reporte_SA, reporte_HC_Simple, reporte_HC_Maxima_Pendiente, reporte_RS
 import numpy as np
 
 #Función para cargar datos
@@ -43,21 +43,49 @@ def menu():
                 print(f"\nSerie cargada: {serie['file']} con {len(datos)} puntos.")
                 print("Seleccione Algoritmo:")
                 print("a) Búsqueda Aleatoria")
-                print("b) Hill Climbing")
-                print("c) Simulated Annealing")
-                print("d) Ejecutar todos (Comparativa)")
+                print("b) Hill Climbing Simple")
+                print("c) Hill Climbing con Máxima Pendiente")
+                print("d) Simulated Annealing")
+                print("e) Ejecutar todos (Comparativa)")
 
                 eleccion = input("Opción: ").lower()
                 
                 if eleccion == 'a':
-                    random_search(datos, serie['k'])
-                elif eleccion == 'b':
-                    mejores_cortes, error_final = hill_climbing_maxima_pendiente(datos ,serie['file'], serie['k'])
-                    print(f"RESULTADO FINAL {serie['file']}:")
-                    print(f"Cortes: {mejores_cortes}")
-                    print(f"RMSE Promedio: {error_final:.6f}\n")
+                    reporte_RS(
+                        random_search,
+                        repeticiones=5,
+                        file=serie,
+                        serie=datos
+                    )
+                    #random_search(datos, serie['k'])
 
+                elif eleccion == 'b':
+                    reporte_HC_Simple(
+                        hill_climbing,
+                        repeticiones=5,
+                        file=serie,
+                        serie=datos
+                    )
+
+                    #mejores_cortes, error_final = hill_climbing(datos ,serie['file'], serie['k'])
+                    #print(f"RESULTADO FINAL {serie['file']}:")
+                    #print(f"Cortes: {mejores_cortes}")
+                    #print(f"RMSE Promedio: {error_final:.6f}\n")
+                
                 elif eleccion == 'c':
+                    reporte_HC_Maxima_Pendiente(
+                        hill_climbing_maxima_pendiente,
+                        repeticiones=5,
+                        file=serie,
+                        serie=datos
+                    )
+                    
+                    #mejores_cortes, error_final = hill_climbing_maxima_pendiente(datos ,serie['file'], serie['k'])
+                    #print(f"RESULTADO FINAL {serie['file']}:")
+                    #print(f"Cortes: {mejores_cortes}")
+                    #print(f"RMSE Promedio: {error_final:.6f}\n")
+
+                elif eleccion == 'd':
 
                     T0 = 0.1
                     alpha = .99
@@ -66,7 +94,7 @@ def menu():
                     # simulated_annealing(T0, alpha, L, Tf, serie,datos)
                     reporte_SA(
                         simulated_annealing,
-                        repeticiones=500,
+                        repeticiones=5,
                         T0=T0,
                         alpha=alpha,
                         Tf=Tf,
@@ -75,7 +103,7 @@ def menu():
                     )
                     # gráfica debugging
 
-                elif eleccion == 'd':
+                elif eleccion == 'e':
                     for nombre in ["Búsqueda Aleatoria", "Hill Climbing", "Simulated Annealing"]:
                         ejecutar_experimento(None, datos, serie['k'], nombre)
         

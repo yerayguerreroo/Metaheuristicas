@@ -2,6 +2,7 @@ import numpy as np
 import mrse
 import segmentos
 import auxiliar
+import cronometro
 
 def calcular_error_total(y, cortes):
     """
@@ -44,42 +45,37 @@ def hill_climbing(datos, archivo_txt, k_segmentos):
     """
     Implementación de Hill Climbing para optimizar los puntos de corte.
     """
-    # 1. Cargar datos usando tu función de main.py
+    cronometro.comenzar_cronometro()
+    
     y = datos
     n = len(y)
     
-    # 2. Generar solución inicial usando tu función de segmentos.py
     solucion_actual = segmentos.generar_segmentos(k_segmentos, n)
-    error_actual = calcular_error_total(y, solucion_actual)
+    error_inicial = calcular_error_total(y, solucion_actual)
+    error_actual = error_inicial # Guardamos el inicial intacto
     
     print(f"--- Iniciando Hill Climbing para {archivo_txt} (k={k_segmentos}) ---")
-    print(f"Error inicial: {error_actual:.6f}")
+    print(f"Error inicial: {error_inicial:.6f}")
 
     mejorando = True
     paso_iteracion = 0
     
     while mejorando:
         mejorando = False
-        # 3. Iteramos por cada punto de corte para intentar moverlo
         for i in range(len(solucion_actual)):
             valor_original = solucion_actual[i]
             
-            # Probamos mover el punto de corte a la izquierda (-1) y derecha (+1)
             for movimiento in [-1, 1]:
                 nueva_solucion = list(solucion_actual)
                 nueva_solucion[i] += movimiento
                 
-                # Solo evaluamos si el movimiento es válido
                 if es_valido(nueva_solucion, n):
                     nuevo_error = calcular_error_total(y, nueva_solucion)
                     
-                    # Si el error disminuye, aceptamos el cambio (esto es Hill Climbing)
                     if nuevo_error < error_actual:
                         error_actual = nuevo_error
                         solucion_actual = nueva_solucion
                         mejorando = True
-                        # En Hill Climbing simple, una vez que mejoramos un punto, 
-                        # podemos seguir con el siguiente o reiniciar
         
         paso_iteracion += 1
         if paso_iteracion % 10 == 0:
@@ -87,21 +83,31 @@ def hill_climbing(datos, archivo_txt, k_segmentos):
 
     print(f"Máximo local (óptimo de error) alcanzado.")
 
-    return solucion_actual, error_actual
+    # 3. Devolvemos un diccionario para que la función de reporte lo pueda procesar
+    return {
+        "solucion": solucion_actual,
+        "rmse_inicial": error_inicial,
+        "rmse_final": error_actual,
+        "tiempo": cronometro.parar_cronometro()
+    }
+
 
 def hill_climbing_maxima_pendiente(datos, archivo_txt, k_segmentos):
     """
     Implementación de Hill Climbing de Máxima Pendiente (Steepest Descent).
     Evalúa todos los vecinos y escoge el que produzca la mayor mejora.
     """
+    cronometro.comenzar_cronometro()
+
     y = datos
     n = len(y)
     
     solucion_actual = segmentos.generar_segmentos(k_segmentos, n)
-    error_actual = calcular_error_total(y, solucion_actual)
+    error_inicial = calcular_error_total(y, solucion_actual)
+    error_actual = error_inicial # Guardamos el inicial intacto
     
     print(f"--- Iniciando Hill Climbing de Máxima Pendiente para {archivo_txt} (k={k_segmentos}) ---")
-    print(f"Error inicial: {error_actual:.6f}")
+    print(f"Error inicial: {error_inicial:.6f}")
 
     mejorando = True
     paso_iteracion = 0
@@ -140,24 +146,11 @@ def hill_climbing_maxima_pendiente(datos, archivo_txt, k_segmentos):
             print(f"Iteración {paso_iteracion}, Error actual: {error_actual:.6f}")
 
     print(f"Mínimo local alcanzado tras {paso_iteracion} iteraciones.")
-    return solucion_actual, error_actual
 
-
-if __name__ == "__main__":
-    # Configuración según la Práctica 1 (PDF)
-    configuraciones = [
-        ('TS1.txt', 9),
-        ('TS2.txt', 10),
-        ('TS3.txt', 20),
-        ('TS4.txt', 50),
-    ]
-    
-    for archivo, k in configuraciones:
-        mejores_cortes, error_final = hill_climbing(archivo, k)
-        print(f"RESULTADO FINAL {archivo}:")
-        print(f"Cortes: {mejores_cortes}")
-        print(f"RMSE Promedio: {error_final:.6f}\n")
-
-
-
-
+    # 3. Devolvemos el diccionario con la misma estructura que el HC simple
+    return {
+        "solucion": solucion_actual,
+        "rmse_inicial": error_inicial,
+        "rmse_final": error_actual,
+        "tiempo": cronometro.parar_cronometro()
+    }
