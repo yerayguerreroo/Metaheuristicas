@@ -1,5 +1,5 @@
 from random_search.main import random_search
-from hill_climbing.main import hill_climbing
+from hill_climbing.main import hill_climbing, hill_climbing_maxima_pendiente
 from simulated_annealing.main import simulated_annealing
 from simulated_annealing.plotting import plot_series_with_piecewise_lines
 from reports import  reporte_SA
@@ -52,7 +52,7 @@ def menu():
                 if eleccion == 'a':
                     random_search(datos, serie['k'])
                 elif eleccion == 'b':
-                    mejores_cortes, error_final = hill_climbing(datos ,serie['file'], serie['k'])
+                    mejores_cortes, error_final = hill_climbing_maxima_pendiente(datos ,serie['file'], serie['k'])
                     print(f"RESULTADO FINAL {serie['file']}:")
                     print(f"Cortes: {mejores_cortes}")
                     print(f"RMSE Promedio: {error_final:.6f}\n")

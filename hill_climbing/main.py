@@ -89,6 +89,60 @@ def hill_climbing(datos, archivo_txt, k_segmentos):
 
     return solucion_actual, error_actual
 
+def hill_climbing_maxima_pendiente(datos, archivo_txt, k_segmentos):
+    """
+    Implementación de Hill Climbing de Máxima Pendiente (Steepest Descent).
+    Evalúa todos los vecinos y escoge el que produzca la mayor mejora.
+    """
+    y = datos
+    n = len(y)
+    
+    solucion_actual = segmentos.generar_segmentos(k_segmentos, n)
+    error_actual = calcular_error_total(y, solucion_actual)
+    
+    print(f"--- Iniciando Hill Climbing de Máxima Pendiente para {archivo_txt} (k={k_segmentos}) ---")
+    print(f"Error inicial: {error_actual:.6f}")
+
+    mejorando = True
+    paso_iteracion = 0
+    
+    while mejorando:
+        mejorando = False
+        
+        # Variables para rastrear el MEJOR vecino de toda la vecindad en esta iteración
+        mejor_vecino = None
+        mejor_error_vecino = error_actual
+        
+        # Evaluamos TODA la vecindad
+        for i in range(len(solucion_actual)):
+            for movimiento in [-1, 1]:
+                nueva_solucion = list(solucion_actual)
+                nueva_solucion[i] += movimiento
+                
+                # Solo evaluamos si el movimiento es válido
+                if es_valido(nueva_solucion, n):
+                    nuevo_error = calcular_error_total(y, nueva_solucion)
+                    
+                    # Guardamos el vecino solo si es ESTRICTAMENTE MEJOR que 
+                    # el mejor que hemos encontrado hasta ahora en esta iteración
+                    if nuevo_error < mejor_error_vecino:
+                        mejor_error_vecino = nuevo_error
+                        mejor_vecino = nueva_solucion
+        
+        # Una vez evaluados todos los vecinos, decidimos si nos movemos
+        if mejor_vecino is not None:
+            error_actual = mejor_error_vecino
+            solucion_actual = mejor_vecino
+            mejorando = True  # Hubo mejora, repetimos el bucle
+        
+        paso_iteracion += 1
+        if paso_iteracion % 10 == 0:
+            print(f"Iteración {paso_iteracion}, Error actual: {error_actual:.6f}")
+
+    print(f"Mínimo local alcanzado tras {paso_iteracion} iteraciones.")
+    return solucion_actual, error_actual
+
+
 if __name__ == "__main__":
     # Configuración según la Práctica 1 (PDF)
     configuraciones = [

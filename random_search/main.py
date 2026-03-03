@@ -9,7 +9,7 @@ def random_search(serie, num_segmentos) -> None:
 
     cfg = SearchConfig(
         num_segmentos,
-        epochs=50000,
+        epochs=10000,
     )
 
     cronometro.comenzar_cronometro()
