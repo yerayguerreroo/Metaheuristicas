@@ -53,7 +53,7 @@ def menu():
                 if eleccion == 'a':
                     reporte_RS(
                         random_search,
-                        repeticiones=5,
+                        repeticiones=50,
                         file=serie,
                         serie=datos
                     )
@@ -62,7 +62,7 @@ def menu():
                 elif eleccion == 'b':
                     reporte_HC_Simple(
                         hill_climbing,
-                        repeticiones=5,
+                        repeticiones=50,
                         file=serie,
                         serie=datos
                     )
@@ -75,7 +75,7 @@ def menu():
                 elif eleccion == 'c':
                     reporte_HC_Maxima_Pendiente(
                         hill_climbing_maxima_pendiente,
-                        repeticiones=5,
+                        repeticiones=50,
                         file=serie,
                         serie=datos
                     )
@@ -94,7 +94,7 @@ def menu():
                     # simulated_annealing(T0, alpha, L, Tf, serie,datos)
                     reporte_SA(
                         simulated_annealing,
-                        repeticiones=5,
+                        repeticiones=50,
                         T0=T0,
                         alpha=alpha,
                         Tf=Tf,
