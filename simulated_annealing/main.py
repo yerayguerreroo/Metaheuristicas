@@ -57,18 +57,17 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
     best_ans = s.copy()
     best_rmse = RMSE_s
 
-    step_max = int(round(.07 * n)) # step_max = 7% de los puntos
+    # step_max = int(round(.07 * n)) # step_max = 7% de los puntos
 
     while T >= Tf:
         # Se podría meter en una función
         
-        mp = (T-Tf) / (T0-Tf)
-        step = max(1, int(round(step_max * mp)))
-        max_L = step * 4 #step = 3, L = 6
-        min_L = int(round(step * 2)) #step = 3, L= 5
-
-        if (step <= (n / 100)): L = max_L
-        else: L = min_L
+        # mp = (T-Tf) / (T0-Tf)
+        # step = max(1, int(round(step_max * mp)))
+        step = 1;
+        # max_L = step * 4
+        # min_L = int(round(step * 2))
+        L = min(k, 20);
 
         for _ in range(L):
             s_cand = generarVecino(s, len(serie), step) #Segmento con el nuevo corte en base al vecindario de s, posicion aleatoria
