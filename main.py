@@ -86,8 +86,8 @@ def menu():
 
                 elif eleccion == 'd':
 
-                    T0 = 0.1
-                    alpha = 0.99
+                    T0 = 0.2
+                    alpha = 0.975
                     Tf = 0.001
 
                     # simulated_annealing(T0, alpha, L, Tf, serie,datos)

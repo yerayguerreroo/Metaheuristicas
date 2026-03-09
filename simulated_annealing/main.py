@@ -1,6 +1,6 @@
 import segmentos
 import simulated_annealing.metrics as metrics
-from auxiliar import cargar_datos
+from auxiliar import cargar_datos, cuts_to_segments_shared
 import numpy as np
 import copy 
 import math
@@ -35,6 +35,18 @@ def getL(T0, T, N):
 
     return L
 
+def getL_mejorado(T0, T, num_puntos, num_segmentos):
+    ratio = T / T0
+    # Aumentamos la base. Factor depende de los cortes y los puntos
+    base_L = (num_puntos / num_segmentos) * (num_segmentos - 1) 
+    
+    # mp va de 1.0 (al inicio, exploración rápida) a 2.5 (al final, búsqueda local profunda)
+    mp = 1.0 + 1.5 * (1 - ratio) 
+    
+    L = max(20, int(round(base_L * mp)))
+    return L
+
+
 def simulated_annealing(T0, alpha, Tf, file, serie):
     
     T = T0
@@ -51,13 +63,56 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
     #Cache para hacer más eficiente esto
     # Simplemente para ahorrar recursos ya esta
     #Nos ahorra muchos usos de RMSE()
-    rmse_cache = {}
+    # rmse_cache = {}
+
+    # def rmse_of(cuts):
+    #     key = tuple(cuts)
+    #     if key not in rmse_cache:
+    #         rmse_cache[key] = metrics.global_rmse_for_cuts(serie, cuts)
+    #     return rmse_cache[key]
+
+    segment_sse_cache = {}
 
     def rmse_of(cuts):
-        key = tuple(cuts)
-        if key not in rmse_cache:
-            rmse_cache[key] = metrics.global_rmse_for_cuts(serie, cuts)
-        return rmse_cache[key]
+        # 1. Convertimos los cortes en pares de segmentos (start, end)
+        segments = cuts_to_segments_shared(cuts, n)
+        
+        total_sse = 0.0
+        
+        for start, end in segments:
+            key = (start, end)
+            
+            # 2. Si este trozo exacto no está en caché, lo calculamos
+            if key not in segment_sse_cache:
+                
+                # Usamos tu función para obtener la pendiente (m) y la intersección (b)
+                m, b, _ = metrics.fit_segment_and_rmse(serie, start, end)
+                
+                if np.isnan(m) or np.isnan(b):
+                    return float("inf") # Segmento inválido
+                
+                # Reconstruimos xs, ys y la predicción (igual que en tu metrics.py)
+                xs = np.arange(start, end, dtype=float)
+                ys = serie[start:end]
+                y_hat = m * xs + b
+                
+                # 3. Tu lógica clave: Evitar doble conteo
+                if start > 0:
+                    ys = ys[1:]
+                    y_hat = y_hat[1:]
+                    
+                # 4. Calculamos la Suma de Errores al Cuadrado (SSE) para este segmento
+                sse = float(np.sum((ys - y_hat) ** 2))
+                
+                # Lo guardamos en caché
+                segment_sse_cache[key] = sse
+                
+            # 5. Sumamos el SSE (ya sea recién calculado o sacado gratis de la caché)
+            total_sse += segment_sse_cache[key]
+            
+        # 6. Devolvemos el RMSE global exacto. 
+        # Como evitamos el doble conteo, el número de puntos totales evaluados siempre es n.
+        return float(np.sqrt(total_sse / n))
 
     RMSE_s = rmse_of(s)
     og_err = RMSE_s
@@ -74,11 +129,12 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
         
         # mp = (T-Tf) / (T0-Tf)
         # step = max(1, int(round(step_max * mp)))
-        step = 1;
+        step = 1
         # max_L = step * 4
         # min_L = int(round(step * 2))
 
-        L = getL(T0, T, TAM_VECINDARIO);
+        #L = getL(T0, T, TAM_VECINDARIO)
+        L = getL_mejorado(T0, T, n, k)
 
         for _ in range(L):
             s_cand = generarVecino(s, len(serie), step) #Segmento con el nuevo corte en base al vecindario de s, posicion aleatoria
@@ -105,7 +161,7 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
             tot+=1
 
 
-        T -= alpha # alpha < 1 -> T disminuye (cooling)
+        T *= alpha # alpha < 1 -> T disminuye (cooling)
 
     # print(f"step = {step_max}")
     # print(f"points = {len(serie)}")
