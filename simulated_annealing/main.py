@@ -28,6 +28,13 @@ def main():
 #Funcion objetivo: reducir el rmse global
 #calcular L
 
+def getL(T0, T, N):
+    ratio = T/ T0;
+    mp = 0.15 + 0.35 * (1 - ratio)  # de 0.15 a 0.50
+    L = max(4, int(round(N * mp)))
+
+    return L
+
 def simulated_annealing(T0, alpha, Tf, file, serie):
     
     T = T0
@@ -35,6 +42,7 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
     cont = 0 #aceptados
     mejores = 0
     tot = 0 #hechos
+    k = file['k'];
 
     cronometro.comenzar_cronometro()
     s = segmentos.generar_segmentos(file['k'], n)
@@ -57,6 +65,8 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
     best_ans = s.copy()
     best_rmse = RMSE_s
 
+    TAM_VECINDARIO = 2 * (k-1);
+
     # step_max = int(round(.07 * n)) # step_max = 7% de los puntos
 
     while T >= Tf:
@@ -67,7 +77,8 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
         step = 1;
         # max_L = step * 4
         # min_L = int(round(step * 2))
-        L = min(k, 20);
+
+        L = getL(T0, T, TAM_VECINDARIO);
 
         for _ in range(L):
             s_cand = generarVecino(s, len(serie), step) #Segmento con el nuevo corte en base al vecindario de s, posicion aleatoria
@@ -94,7 +105,7 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
             tot+=1
 
 
-        T *= alpha # alpha < 1 -> T disminuye (cooling)
+        T -= alpha # alpha < 1 -> T disminuye (cooling)
 
     # print(f"step = {step_max}")
     # print(f"points = {len(serie)}")

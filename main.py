@@ -1,7 +1,6 @@
 from random_search.main import random_search
 from hill_climbing.main import hill_climbing, hill_climbing_maxima_pendiente
 from simulated_annealing.main import simulated_annealing
-from simulated_annealing.plotting import plot_series_with_piecewise_lines
 from reports import  reporte_SA, reporte_HC_Simple, reporte_HC_Maxima_Pendiente, reporte_RS
 import numpy as np
 
@@ -87,8 +86,8 @@ def menu():
 
                 elif eleccion == 'd':
 
-                    T0 = 0.2
-                    alpha = 0.975
+                    T0 = 0.1
+                    alpha = 0.99
                     Tf = 0.001
 
                     # simulated_annealing(T0, alpha, L, Tf, serie,datos)
