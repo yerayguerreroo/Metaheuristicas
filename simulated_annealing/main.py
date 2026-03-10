@@ -29,7 +29,11 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
     cont = 0 #aceptados
     mejores = 0
     tot = 0 #hechos
-    k = file['k'];
+    k = file['k']
+    num_pasos = math.ceil(math.log(Tf / T0) / math.log(alpha))
+    
+    # El decremento lineal (beta) para cubrir ese camino en el mismo num_pasos
+    beta = (T0 - Tf) / num_pasos
 
     cronometro.comenzar_cronometro()
     s = segmentos.generar_segmentos(file['k'], n)
@@ -117,8 +121,9 @@ def simulated_annealing(T0, alpha, Tf, file, serie):
 
             tot+=1
 
-
-        T *= alpha
+        # T *= alpha
+        #T -= beta
+        if T < Tf: T = -1
 
 
     return {

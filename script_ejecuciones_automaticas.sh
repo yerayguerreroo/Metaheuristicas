@@ -4,8 +4,9 @@
 for numero in {1..4}; do
 
   # Bucle interno: va de la 'a' a la 'd'
-  for letra in {a..d}; do
+  #for letra in {a..d}; do
 
+    letra="d"
     echo "-----------------------------------"
     echo "Ejecutando con: Número $numero y Letra $letra"
 
@@ -13,6 +14,6 @@ for numero in {1..4}; do
     # El \n simula que pulsas Enter entre el número y la letra
     echo -e "$numero\n$letra" | python3 main.py
 
-  done
+  #done
 
 done
