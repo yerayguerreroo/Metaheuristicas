@@ -1,7 +1,6 @@
 # random_search/main.py
 from .metrics import segment_report
 from .search import SearchConfig, optimize_cuts
-from .plotting import plot_series_with_piecewise_lines
 import cronometro
 import segmentos
 import mrse
@@ -18,7 +17,7 @@ def random_search(datos, archivo_txt, k_segmentos):
 
     cfg = SearchConfig(
         k_segmentos,
-        epochs=2000,
+        epochs=1000,
     )
 
     print(f"--- Iniciando Random Search para {archivo_txt} (k={k_segmentos}) ---")
@@ -30,17 +29,6 @@ def random_search(datos, archivo_txt, k_segmentos):
 
     print("\nDetalle por segmento:")
     segment_report(datos, best_cuts, verbose=True)
-
-    # --- DIBUJO ---
-    # Hacemos el título y la ruta de guardado dinámicos según el archivo
-    file_serie = archivo_txt.split('.')[0]
-    # plot_series_with_piecewise_lines(
-    #     datos,
-    #     best_cuts,
-    #     show_cuts=True,
-    #     title=f"{file_serie} + rectas por segmentos (mejor solución RS)",
-    #     save_path=f"./random_search/resultados/resultado_{file_serie}.png", 
-    # )
     
     # 3. Devolvemos el diccionario estructurado
     return {
