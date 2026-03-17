@@ -3,6 +3,8 @@ import time
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 
+from resultados import guardar_en_csv
+
 def main():
     print("Cargando el dataset")
 
@@ -25,16 +27,16 @@ def main():
 
     #Creamos la tabla para los parámetros
     parameter_grid = {
-        'n_estimators': [10, 150, 300],
-        'max_depth': [2, 15, 30],
-        'min_samples_split': [2, 10, 20],
-        'min_samples_leaf': [1, 10, 20],
-        'max_features': [0.1, 0.5, 1.0],
+        'n_estimators': [10, 300],
+        'max_depth': [2, 30],
+        'min_samples_split': [2, 20],
+        'min_samples_leaf': [1, 20],
+        'max_features': [0.1, 1.0],
         'bootstrap':[True, False],
         'criterion':['gini', 'entropy'],
-        'class_weight': [True, False],
-        'max_leaf_nodes': [10, 100, 200],
-        'min_impurity_decrease real': [0, 0.05, 0.1]
+        'class_weight': [None, 'balanced'],
+        'max_leaf_nodes': [10, 200],
+        'min_impurity_decrease': [0, 0.1]
     }
 
     #Configuramos el modelo de grid search con la validación cruzada de 5 folds
@@ -64,10 +66,16 @@ def main():
     print("="*50)
     print(f"Mejor Accuracy obtenida: {grid_search.best_score_:.4f}")
     print("\nMejores hiperparámetros encontrados:")
-    for param, value in grid_search.best_params_items():
-        printf(f" - {param}: {value}")
+    for param, value in grid_search.best_params_.items():
+        print(f" - {param}: {value}")
     print(f"\nTiempo de ejecución total: {tiempo_ejecucion:.2f} segundos")
     print("="*50)
+
+    guardar_en_csv(
+        mejor_accuracy=grid_search.best_score_,
+        mejores_parametros=grid_search.best_params_,
+        tiempo_ejecucion=tiempo_ejecucion
+    )
 
 if __name__ == "__main__":
     main()
