@@ -1,2 +1,2 @@
 bootstrap;class_weight;criterion;max_depth;max_features;max_leaf_nodes;min_impurity_decrease;min_samples_leaf;min_samples_split;n_estimators;Mejor_accuracy;Tiempo_Segundos;Algoritmo
-True;;entropy;30;1.0;200;0;20;2;10;0.7417;220.56;Grid Search
+True;;entropy;15;1.0;150;0;20;2;10;0.7417;6139.94;Grid Search

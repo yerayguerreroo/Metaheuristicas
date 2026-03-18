@@ -27,16 +27,16 @@ def main():
 
     #Creamos la tabla para los parámetros
     parameter_grid = {
-        'n_estimators': [10, 300],
-        'max_depth': [2, 30],
-        'min_samples_split': [2, 20],
-        'min_samples_leaf': [1, 20],
-        'max_features': [0.1, 1.0],
+        'n_estimators': [10, 150, 300],
+        'max_depth': [2, 15, 30],
+        'min_samples_split': [2, 10, 20],
+        'min_samples_leaf': [1, 10, 20],
+        'max_features': [0.1, 0.5, 1.0],
         'bootstrap':[True, False],
         'criterion':['gini', 'entropy'],
         'class_weight': [None, 'balanced'],
-        'max_leaf_nodes': [10, 200],
-        'min_impurity_decrease': [0, 0.1]
+        'max_leaf_nodes': [10, 150,200],
+        'min_impurity_decrease': [0, 0.05,0.1]
     }
 
     #Configuramos el modelo de grid search con la validación cruzada de 5 folds
