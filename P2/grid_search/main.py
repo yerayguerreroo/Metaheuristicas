@@ -3,6 +3,8 @@ import time
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 
+from resultados import guardar_en_csv
+
 def main():
     print("Cargando el dataset")
 
@@ -32,9 +34,9 @@ def main():
         'max_features': [0.1, 0.5, 1.0],
         'bootstrap':[True, False],
         'criterion':['gini', 'entropy'],
-        'class_weight': [True, False],
-        'max_leaf_nodes': [10, 100, 200],
-        'min_impurity_decrease real': [0, 0.05, 0.1]
+        'class_weight': [None, 'balanced'],
+        'max_leaf_nodes': [10, 150,200],
+        'min_impurity_decrease': [0, 0.05,0.1]
     }
 
     #Configuramos el modelo de grid search con la validación cruzada de 5 folds
@@ -68,6 +70,12 @@ def main():
         print(f" - {param}: {value}")
     print(f"\nTiempo de ejecución total: {tiempo_ejecucion:.2f} segundos")
     print("="*50)
+
+    guardar_en_csv(
+        mejor_accuracy=grid_search.best_score_,
+        mejores_parametros=grid_search.best_params_,
+        tiempo_ejecucion=tiempo_ejecucion
+    )
 
 if __name__ == "__main__":
     main()
