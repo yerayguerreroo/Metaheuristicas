@@ -51,9 +51,9 @@ def main():
     tiempo_inicio = time.time()
 
     #Entrenamos el modelo
-    grid_search.fit(X,y);
+    grid_search.fit(X,y)
 
-    tiempo_final = time.time();
+    tiempo_final = time.time()
 
     tiempo_ejecucion = tiempo_final - tiempo_inicio
 
@@ -65,7 +65,7 @@ def main():
     print(f"Mejor Accuracy obtenida: {grid_search.best_score_:.4f}")
     print("\nMejores hiperparámetros encontrados:")
     for param, value in grid_search.best_params_items():
-        printf(f" - {param}: {value}")
+        print(f" - {param}: {value}")
     print(f"\nTiempo de ejecución total: {tiempo_ejecucion:.2f} segundos")
     print("="*50)
 
