@@ -3,11 +3,12 @@ import numpy as np
 import random
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
+from guardardatosexcel import guardar_resultados_excel
 
 # --- 1. PREPARACIÓN DE DATOS (Basado en el enunciado) ---
 # Cargar dataset (Asegúrate de tener el CSV en la misma carpeta o en tu Colab)
 try:
-    data = pd.read_csv("winequality-red.csv")
+    data = pd.read_csv("winequality-red.csv", sep=";")
     # Convertir problema a clasificación binaria (>=6 es 1, <6 es 0)
     data["quality"] = (data["quality"] >= 6).astype(int)
     X = data.drop("quality", axis=1)
@@ -173,3 +174,9 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1):
     
     return best_overall_individual, best_overall_fitness
 
+if __name__ == "__main__":
+    # 1. Ejecutamos el algoritmo
+    mejores_parametros, mejor_fitness = run_genetic_algorithm(pop_size=10, generations=5, mutation_rate=0.1)
+    
+    # 2. Guardamos en Excel (Asegúrate de tener la variable PARAM_NAMES definida arriba)
+    guardar_resultados_excel(mejores_parametros, mejor_fitness, PARAM_NAMES)

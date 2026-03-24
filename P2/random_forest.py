@@ -4,13 +4,14 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
 
-def evaluate_solution(params):
-    data = pd.read_csv("winequality-red.csv", sep=';')
-    # convertir problema a clasificación binaria
-    data["quality"] = (data["quality"] >= 6).astype(int)
-    X = data.drop("quality", axis=1)
-    y = data["quality"]
+data = pd.read_csv("winequality-red.csv", sep=';')
 
+# Convertir problema a clasificación binaria
+y = (data["quality"] >= 6).astype(int)
+X = data.drop("quality", axis=1)
+
+
+def evaluate_solution(params):
     model = RandomForestClassifier(
     n_estimators=int(params[0]),
     max_depth=int(params[1]),

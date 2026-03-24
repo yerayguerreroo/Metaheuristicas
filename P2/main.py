@@ -22,10 +22,10 @@ def menu():
             break
 
         elif opcion == '1':
-            resultados_rs = random_search()
-            print(f"Resultados: {resultados_rs}")
-            resultados = evaluate_solution(resultados_rs)
-            print(f"Resultados: {resultados}")
+            resultados_rs, score = random_search()
+            print("-"*50)
+            print(f"Mejor resultados: {resultados_rs}, Score: {score}")
+            print("-"*50)
 
         elif opcion == '2':
             print("GS")

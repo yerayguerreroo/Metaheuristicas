@@ -1,6 +1,22 @@
 import random
+from random_forest import evaluate_solution
 
 def random_search():
+    iteraciones = 15000 # Hacer pruebas con 15000 20000 25000
+    mejor_solucion = []
+    mejor_score = 0.0
+    for i in range(iteraciones):
+        solucion = generar_solucion()
+        score = evaluate_solution(solucion)
+        print(f"Iteración {i+1}/{iteraciones} - Score: {score:.4f}")
+        if score > mejor_score:
+            mejor_score = score
+            mejor_solucion = solucion
+
+    return mejor_solucion, mejor_score
+        
+
+def generar_solucion():
     # 1. n_estimators: entero 10 – 300
     n_estimators = random.randint(10, 300)
     
