@@ -6,10 +6,9 @@ from sklearn.model_selection import cross_val_score
 from guardardatosexcel import guardar_resultados_excel
 
 # --- 1. PREPARACIÓN DE DATOS (Basado en el enunciado) ---
-# Cargar dataset (Asegúrate de tener el CSV en la misma carpeta o en tu Colab)
 try:
     data = pd.read_csv("winequality-red.csv", sep=";")
-    # Convertir problema a clasificación binaria (>=6 es 1, <6 es 0)
+    # sep=";" porque el CSV usa punto y coma como separador (formato europeo)
     data["quality"] = (data["quality"] >= 6).astype(int)
     X = data.drop("quality", axis=1)
     y = data["quality"]
@@ -18,11 +17,10 @@ except FileNotFoundError:
     X, y = None, None
 
 # --- 2. DEFINICIÓN DE RANGOS DE GENES ---
-# Tupla: (min, max, tipo). Esto facilita la inicialización y la mutación.
 PARAM_NAMES = [
-    "n_estimators", "max_depth", "min_samples_split", 
-    "min_samples_leaf", "max_features", "bootstrap", 
-    "criterion", "class_weight", "max_leaf_nodes", 
+    "n_estimators", "max_depth", "min_samples_split",
+    "min_samples_leaf", "max_features", "bootstrap",
+    "criterion", "class_weight", "max_leaf_nodes",
     "min_impurity_decrease"
 ]
 PARAM_BOUNDS = [
@@ -40,8 +38,8 @@ PARAM_BOUNDS = [
 
 # --- 3. EVALUACIÓN (Función del enunciado) ---
 def evaluate_solution(params):
-    if X is None: return 0.0 # Control de seguridad
-    
+    if X is None: return 0.0
+
     model = RandomForestClassifier(
         n_estimators=int(params[0]),
         max_depth=int(params[1]),
@@ -53,9 +51,8 @@ def evaluate_solution(params):
         class_weight=None if params[7] == 0 else "balanced",
         max_leaf_nodes=int(params[8]),
         min_impurity_decrease=float(params[9]),
-        random_state=42 # Para reproducibilidad
+        random_state=42
     )
-    # 5 folds, scoring=accuracy
     scores = cross_val_score(model, X, y, cv=5, scoring="accuracy")
     return scores.mean()
 
@@ -93,11 +90,39 @@ def uniform_crossover(parent1, parent2):
             child.append(parent2[i])
     return child
 
-def mutate(individual, mutation_rate):
-    """Muta los genes de un individuo con una probabilidad dada"""
+def mutate_random(individual, mutation_rate):
+    """Mutación aleatoria: resetea el gen a un valor completamente nuevo dentro de sus límites."""
     for i in range(len(individual)):
         if random.random() < mutation_rate:
-            individual[i] = generate_random_gene(i) # Genera un nuevo valor válido
+            individual[i] = generate_random_gene(i)
+    return individual
+
+def mutate_creep(individual, mutation_rate):
+    """
+    Mutación por perturbación (creep): en lugar de resetear el gen completamente,
+    le suma un pequeño delta proporcional al rango del parámetro (±10%).
+    Útil en generaciones avanzadas: hace ajustes finos cerca de buenas soluciones
+    en lugar de destruirlas con un salto aleatorio grande.
+    Los genes binarios (bootstrap, criterion, class_weight) se tratan igual que
+    en la mutación aleatoria — no tiene sentido perturbar un valor 0/1.
+    """
+    BINARY_GENES = {5, 6, 7}  # índices de genes binarios
+
+    for i in range(len(individual)):
+        if random.random() < mutation_rate:
+            min_val, max_val, gene_type = PARAM_BOUNDS[i]
+
+            if i in BINARY_GENES:
+                # Para binarios: flip igual que antes
+                individual[i] = 1 - individual[i]
+            else:
+                delta = random.uniform(-0.1 * (max_val - min_val),
+                                        0.1 * (max_val - min_val))
+                new_val = individual[i] + delta
+                # Clamp: mantener el valor dentro de los límites del parámetro
+                new_val = max(min_val, min(max_val, new_val))
+                individual[i] = int(round(new_val)) if gene_type == int else new_val
+
     return individual
 
 # --- 5. BUCLE PRINCIPAL DEL ALGORITMO GENÉTICO ---
@@ -118,65 +143,83 @@ def mutate(individual, mutation_rate):
 #	fin mientras
 #fin
 
-def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1):
-    print("Iniciando Algoritmo Genético...")
-    
-    # t = 0; Inicializar P(t)
+def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
+                          mutation_method='random'):
+    print(f"Iniciando Algoritmo Genético... [mutación: {mutation_method}]")
+
+    mutate = mutate_random if mutation_method == 'random' else mutate_creep
+
     population = initialize_population(pop_size)
     best_overall_individual = None
     best_overall_fitness = -1
 
-    # Bucle de generaciones
     for t in range(generations):
         print(f"\n--- Generación {t+1}/{generations} ---")
-        
-        # Evaluar P(t)
+
         fitnesses = [evaluate_solution(ind) for ind in population]
-        
-        # Guardar el mejor de la generación (Elitismo)
+
         best_gen_fitness = max(fitnesses)
         best_gen_idx = fitnesses.index(best_gen_fitness)
         best_gen_individual = population[best_gen_idx]
-        
+
         print(f"Mejor Fitness de la generación: {best_gen_fitness:.4f}")
-        
+
         if best_gen_fitness > best_overall_fitness:
             best_overall_fitness = best_gen_fitness
             best_overall_individual = list(best_gen_individual)
 
-        # Nueva población P(t+1)
         new_population = []
-        
-        # Elitismo: pasamos el mejor individuo directamente
-        new_population.append(list(best_gen_individual))
-        
-        # Generar el resto de la nueva población
+        new_population.append(list(best_gen_individual))  # elitismo
+
         while len(new_population) < pop_size:
-            # Seleccionar
             parent1 = tournament_selection(population, fitnesses)
             parent2 = tournament_selection(population, fitnesses)
-            
-            # Cruzar
             child = uniform_crossover(parent1, parent2)
-            
-            # Mutar
             child = mutate(child, mutation_rate)
-            
             new_population.append(child)
-            
-        # Reemplazar P(t) por P(t+1)
+
         population = new_population
-        
+
     print("\n=== FIN DE LA EJECUCIÓN ===")
     print(f"Mejor Fitness Global: {best_overall_fitness:.4f}")
-    print("Mejores Hiperparámetros encontrados:")
     print(best_overall_individual)
-    
+
     return best_overall_individual, best_overall_fitness
 
+
+# --- 6. COMPARACIÓN: MUTACIÓN ALEATORIA vs MUTACIÓN CREEP ---
+
 if __name__ == "__main__":
-    # 1. Ejecutamos el algoritmo
-    mejores_parametros, mejor_fitness = run_genetic_algorithm(pop_size=10, generations=5, mutation_rate=0.1)
-    
-    # 2. Guardamos en Excel (Asegúrate de tener la variable PARAM_NAMES definida arriba)
-    guardar_resultados_excel(mejores_parametros, mejor_fitness, PARAM_NAMES)
+
+    POP_SIZE      = 50
+    GENERATIONS   = 50
+    MUTATION_RATE = 0.1
+    N_REPS        = 1  # repeticiones por método
+
+    results      = {'random': [], 'creep': []}
+    best_params  = {'random': None, 'creep': None}
+    best_fitness = {'random': -1,   'creep': -1}
+
+    for method in ['random', 'creep']:
+        for rep in range(N_REPS):
+            print(f"\n[{method}] Rep {rep+1}/{N_REPS}")
+            params, fitness = run_genetic_algorithm(
+                pop_size=POP_SIZE, generations=GENERATIONS,
+                mutation_rate=MUTATION_RATE, mutation_method=method
+            )
+            results[method].append(fitness)
+            if fitness > best_fitness[method]:
+                best_fitness[method] = fitness
+                best_params[method]  = params
+
+    print("\n" + "="*50)
+    print("COMPARACIÓN DE OPERADORES DE MUTACIÓN")
+    print("="*50)
+    for method, fitnesses in results.items():
+        print(f"  {method:8s} → media: {np.mean(fitnesses):.4f}  "
+              f"std: {np.std(fitnesses):.4f}  "
+              f"mejor: {max(fitnesses):.4f}")
+    print("="*50)
+
+    guardar_resultados_excel(best_params['random'], best_fitness['random'], PARAM_NAMES)
+    guardar_resultados_excel(best_params['creep'],  best_fitness['creep'],  PARAM_NAMES)
