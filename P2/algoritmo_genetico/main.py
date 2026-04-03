@@ -90,6 +90,17 @@ def uniform_crossover(parent1, parent2):
             child.append(parent2[i])
     return child
 
+def two_point_crossover(parent1, parent2):
+    """
+    Cruce en dos puntos: se eligen dos cortes aleatorios c1 y c2.
+    El hijo toma [0..c1] de parent1, [c1+1..c2] de parent2, [c2+1..fin] de parent1.
+    Preserva bloques contiguos de genes de cada padre. Menos mezcla que el uniforme
+    pero más que el cruce en un punto.
+    """
+    n = len(parent1)
+    c1, c2 = sorted(random.sample(range(n), 2))
+    return parent1[:c1+1] + parent2[c1+1:c2+1] + parent1[c2+1:]
+
 def mutate_random(individual, mutation_rate):
     """Mutación aleatoria: resetea el gen a un valor completamente nuevo dentro de sus límites."""
     for i in range(len(individual)):
@@ -144,41 +155,90 @@ def mutate_creep(individual, mutation_rate):
 #fin
 
 def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
-                          mutation_method='random'):
-    print(f"Iniciando Algoritmo Genético... [mutación: {mutation_method}]")
+                          mutation_method='random', crossover_method='uniform',
+                          model='generational', adaptive_pc_pm=False):
+    print(f"Iniciando Algoritmo Genético... [mutación: {mutation_method} | cruce: {crossover_method} | modelo: {model} | adaptive: {adaptive_pc_pm}]")
 
-    mutate = mutate_random if mutation_method == 'random' else mutate_creep
+    mutate    = mutate_random if mutation_method == 'random' else mutate_creep
+    crossover = uniform_crossover if crossover_method == 'uniform' else two_point_crossover
+
+    # Pc/Pm adaptativos: parten de 0.5 y divergen linealmente con Pc+Pm=1
+    # Pc: 0.5 → 0.9 (más cruce al final cuando la población converge... espera, es al revés)
+    # Pc: 0.9 → 0.1 (menos cruce conforme converge), Pm: 0.1 → 0.9 (más mutación al final)
+    PC_MAX, PC_MIN = 0.9, 0.1  # límites para evitar que alguno llegue a 0 o 1
 
     population = initialize_population(pop_size)
+    fitnesses  = [evaluate_solution(ind) for ind in population]
     best_overall_individual = None
     best_overall_fitness = -1
 
     for t in range(generations):
         print(f"\n--- Generación {t+1}/{generations} ---")
 
-        fitnesses = [evaluate_solution(ind) for ind in population]
+        # Calcular Pc y Pm para esta generación si modo adaptativo activo
+        if adaptive_pc_pm and generations > 1:
+            Pc = PC_MAX - (PC_MAX - PC_MIN) * t / (generations - 1)  # 0.9 → 0.1
+            Pm = 1 - Pc                                               # 0.1 → 0.9
+        else:
+            Pc = 1.0        # cruce siempre (comportamiento original)
+            Pm = mutation_rate
 
-        best_gen_fitness = max(fitnesses)
-        best_gen_idx = fitnesses.index(best_gen_fitness)
-        best_gen_individual = population[best_gen_idx]
+        if model == 'generational':
+            best_gen_idx      = max(range(len(fitnesses)), key=lambda i: fitnesses[i])
+            best_gen_fitness  = fitnesses[best_gen_idx]
+            best_gen_individual = population[best_gen_idx]
 
-        print(f"Mejor Fitness de la generación: {best_gen_fitness:.4f}")
+            print(f"Mejor Fitness de la generación: {best_gen_fitness:.4f}" +
+                  (f"  [Pc={Pc:.2f} Pm={Pm:.2f}]" if adaptive_pc_pm else ""))
 
-        if best_gen_fitness > best_overall_fitness:
-            best_overall_fitness = best_gen_fitness
-            best_overall_individual = list(best_gen_individual)
+            if best_gen_fitness > best_overall_fitness:
+                best_overall_fitness    = best_gen_fitness
+                best_overall_individual = list(best_gen_individual)
 
-        new_population = []
-        new_population.append(list(best_gen_individual))  # elitismo
+            new_population = [list(best_gen_individual)]  # elitismo
+            while len(new_population) < pop_size:
+                parent1 = tournament_selection(population, fitnesses)
+                parent2 = tournament_selection(population, fitnesses)
 
-        while len(new_population) < pop_size:
-            parent1 = tournament_selection(population, fitnesses)
-            parent2 = tournament_selection(population, fitnesses)
-            child = uniform_crossover(parent1, parent2)
-            child = mutate(child, mutation_rate)
-            new_population.append(child)
+                # Pc: probabilidad de cruzar; si no, el hijo es copia del parent1
+                if random.random() < Pc:
+                    child = crossover(parent1, parent2)
+                else:
+                    child = list(parent1)
 
-        population = new_population
+                # Pm: probabilidad de mutar el individuo (muta un gen aleatorio)
+                if random.random() < Pm:
+                    gene_idx = random.randint(0, len(child) - 1)
+                    child[gene_idx] = generate_random_gene(gene_idx)
+
+                new_population.append(child)
+
+            population = new_population
+            fitnesses  = [evaluate_solution(ind) for ind in population]
+
+        else:  # steady-state
+            # Cada "generación" = pop_size reemplazos → mismo nº de evaluaciones que generacional
+            for _ in range(pop_size):
+                parent1 = tournament_selection(population, fitnesses)
+                parent2 = tournament_selection(population, fitnesses)
+                child   = crossover(parent1, parent2)
+                child   = mutate(child, mutation_rate)
+                child_fitness = evaluate_solution(child)
+
+                # Reemplazar al peor (nunca al mejor — elitismo implícito)
+                worst_idx = min(range(len(fitnesses)), key=lambda i: fitnesses[i])
+                best_idx  = max(range(len(fitnesses)), key=lambda i: fitnesses[i])
+                if worst_idx != best_idx:
+                    population[worst_idx] = child
+                    fitnesses[worst_idx]  = child_fitness
+
+            best_gen_idx     = max(range(len(fitnesses)), key=lambda i: fitnesses[i])
+            best_gen_fitness = fitnesses[best_gen_idx]
+            print(f"Mejor Fitness de la generación: {best_gen_fitness:.4f}")
+
+            if best_gen_fitness > best_overall_fitness:
+                best_overall_fitness    = best_gen_fitness
+                best_overall_individual = list(population[best_gen_idx])
 
     print("\n=== FIN DE LA EJECUCIÓN ===")
     print(f"Mejor Fitness Global: {best_overall_fitness:.4f}")
@@ -187,39 +247,41 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
     return best_overall_individual, best_overall_fitness
 
 
-# --- 6. COMPARACIÓN: MUTACIÓN ALEATORIA vs MUTACIÓN CREEP ---
+# --- 6. COMPARACIÓN: Pc/Pm FIJOS vs Pc/Pm ADAPTATIVOS ---
 
 if __name__ == "__main__":
 
-    POP_SIZE      = 50
-    GENERATIONS   = 50
+    POP_SIZE      = 20
+    GENERATIONS   = 20
     MUTATION_RATE = 0.1
-    N_REPS        = 1  # repeticiones por método
+    N_REPS        = 5
 
-    results      = {'random': [], 'creep': []}
-    best_params  = {'random': None, 'creep': None}
-    best_fitness = {'random': -1,   'creep': -1}
+    results      = {'fijo': [], 'adaptativo': []}
+    best_params  = {'fijo': None, 'adaptativo': None}
+    best_fitness = {'fijo': -1,  'adaptativo': -1}
 
-    for method in ['random', 'creep']:
+    for adaptive in [False, True]:
+        label = 'adaptativo' if adaptive else 'fijo'
         for rep in range(N_REPS):
-            print(f"\n[{method}] Rep {rep+1}/{N_REPS}")
+            print(f"\n[{label}] Rep {rep+1}/{N_REPS}")
             params, fitness = run_genetic_algorithm(
                 pop_size=POP_SIZE, generations=GENERATIONS,
-                mutation_rate=MUTATION_RATE, mutation_method=method
+                mutation_rate=MUTATION_RATE, adaptive_pc_pm=adaptive
             )
-            results[method].append(fitness)
-            if fitness > best_fitness[method]:
-                best_fitness[method] = fitness
-                best_params[method]  = params
+            results[label].append(fitness)
+            if fitness > best_fitness[label]:
+                best_fitness[label] = fitness
+                best_params[label]  = params
 
     print("\n" + "="*50)
-    print("COMPARACIÓN DE OPERADORES DE MUTACIÓN")
+    print("COMPARACIÓN Pc/Pm FIJOS vs ADAPTATIVOS")
     print("="*50)
-    for method, fitnesses in results.items():
-        print(f"  {method:8s} → media: {np.mean(fitnesses):.4f}  "
+    for label, fitnesses in results.items():
+        print(f"  {label:12s} → media: {np.mean(fitnesses):.4f}  "
               f"std: {np.std(fitnesses):.4f}  "
               f"mejor: {max(fitnesses):.4f}")
     print("="*50)
 
-    guardar_resultados_excel(best_params['random'], best_fitness['random'], PARAM_NAMES)
-    guardar_resultados_excel(best_params['creep'],  best_fitness['creep'],  PARAM_NAMES)
+    for label in ['fijo', 'adaptativo']:
+        prefijo = f"ag_pcpm-{label}_pop{POP_SIZE}_gen{GENERATIONS}_reps{N_REPS}"
+        guardar_resultados_excel(best_params[label], best_fitness[label], PARAM_NAMES, prefijo)
