@@ -169,5 +169,22 @@ El espacio de hiperparámetros del RF tiene una **meseta amplia** — muchas com
 | Pc/Pm | Adaptativos (Pc: 0.9→0.1 / Pm: 0.1→0.9) |
 | Elitismo | Sí |
 
-## Siguiente paso
-Ejecución final con `pop=50, gen=50, adaptive_pc_pm=True` para comparativa del informe contra RS y Grid Search.
+## Ejecución final
+
+Configuración: `pop=50, gen=50, N_REPS=5, adaptive_pc_pm=True`
+
+| Métrica | Valor |
+|---|---|
+| Media | 0.7499 |
+| Std | 0.0019 |
+| Mejor | 0.7523 |
+
+### Comparativa final
+
+| Método | Evaluaciones | Mejor accuracy |
+|---|---|---|
+| Grid Search | 26,244 | 0.7417 |
+| Random Search | 15,000 | — |
+| **GA (final)** | **2,500** | **0.7523** |
+
+**El GA supera al Grid Search en accuracy con 10x menos evaluaciones.** Las trazas muestran mejora continua hasta las últimas generaciones gracias a Pm alto — el mecanismo adaptativo funcionando como se esperaba.

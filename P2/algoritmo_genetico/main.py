@@ -247,41 +247,35 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
     return best_overall_individual, best_overall_fitness
 
 
-# --- 6. COMPARACIÓN: Pc/Pm FIJOS vs Pc/Pm ADAPTATIVOS ---
+# --- EJECUCIÓN FINAL ---
 
 if __name__ == "__main__":
 
-    POP_SIZE      = 20
-    GENERATIONS   = 20
+    POP_SIZE      = 50
+    GENERATIONS   = 50
     MUTATION_RATE = 0.1
     N_REPS        = 5
 
-    results      = {'fijo': [], 'adaptativo': []}
-    best_params  = {'fijo': None, 'adaptativo': None}
-    best_fitness = {'fijo': -1,  'adaptativo': -1}
+    results     = []
+    best_params = None
+    best_fitness = -1
 
-    for adaptive in [False, True]:
-        label = 'adaptativo' if adaptive else 'fijo'
-        for rep in range(N_REPS):
-            print(f"\n[{label}] Rep {rep+1}/{N_REPS}")
-            params, fitness = run_genetic_algorithm(
-                pop_size=POP_SIZE, generations=GENERATIONS,
-                mutation_rate=MUTATION_RATE, adaptive_pc_pm=adaptive
-            )
-            results[label].append(fitness)
-            if fitness > best_fitness[label]:
-                best_fitness[label] = fitness
-                best_params[label]  = params
+    for rep in range(N_REPS):
+        print(f"\n[Rep {rep+1}/{N_REPS}]")
+        params, fitness = run_genetic_algorithm(
+            pop_size=POP_SIZE, generations=GENERATIONS,
+            mutation_rate=MUTATION_RATE, adaptive_pc_pm=True
+        )
+        results.append(fitness)
+        if fitness > best_fitness:
+            best_fitness = fitness
+            best_params  = params
 
     print("\n" + "="*50)
-    print("COMPARACIÓN Pc/Pm FIJOS vs ADAPTATIVOS")
+    print("RESULTADOS FINALES")
     print("="*50)
-    for label, fitnesses in results.items():
-        print(f"  {label:12s} → media: {np.mean(fitnesses):.4f}  "
-              f"std: {np.std(fitnesses):.4f}  "
-              f"mejor: {max(fitnesses):.4f}")
+    print(f"  media: {np.mean(results):.4f}  std: {np.std(results):.4f}  mejor: {max(results):.4f}")
     print("="*50)
 
-    for label in ['fijo', 'adaptativo']:
-        prefijo = f"ag_pcpm-{label}_pop{POP_SIZE}_gen{GENERATIONS}_reps{N_REPS}"
-        guardar_resultados_excel(best_params[label], best_fitness[label], PARAM_NAMES, prefijo)
+    prefijo = f"ag_final_pop{POP_SIZE}_gen{GENERATIONS}_reps{N_REPS}"
+    guardar_resultados_excel(best_params, best_fitness, PARAM_NAMES, prefijo)
