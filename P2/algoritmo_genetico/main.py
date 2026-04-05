@@ -3,13 +3,7 @@ import numpy as np
 import random
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
-
-try:
-    # Intenta importar asumiendo que se ejecuta desde el main principal (P2/main.py)
-    from algoritmo_genetico.guardardatosexcel import guardar_resultados_excel
-except ModuleNotFoundError:
-    # Si falla, asume que se está ejecutando directamente este archivo (algoritmo_genetico/main.py)
-    from guardardatosexcel import guardar_resultados_excel
+from guardardatosexcel import guardar_resultados_excel
 
 # --- 1. PREPARACIÓN DE DATOS (Basado en el enunciado) ---
 try:
@@ -177,6 +171,8 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
     fitnesses  = [evaluate_solution(ind) for ind in population]
     best_overall_individual = None
     best_overall_fitness = -1
+    no_improve = 0
+    PATIENCE   = 10  # generaciones consecutivas sin mejora para parar
 
     for t in range(generations):
         print(f"\n--- Generación {t+1}/{generations} ---")
@@ -200,6 +196,13 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
             if best_gen_fitness > best_overall_fitness:
                 best_overall_fitness    = best_gen_fitness
                 best_overall_individual = list(best_gen_individual)
+                no_improve = 0
+            else:
+                no_improve += 1
+
+            if no_improve >= PATIENCE:
+                print(f"  Parada anticipada (sin mejora en {PATIENCE} generaciones consecutivas)")
+                break
 
             new_population = [list(best_gen_individual)]  # elitismo
             while len(new_population) < pop_size:
