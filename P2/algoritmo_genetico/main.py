@@ -171,6 +171,8 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
     fitnesses  = [evaluate_solution(ind) for ind in population]
     best_overall_individual = None
     best_overall_fitness = -1
+    no_improve = 0
+    PATIENCE   = 10  # generaciones consecutivas sin mejora para parar
 
     for t in range(generations):
         print(f"\n--- Generación {t+1}/{generations} ---")
@@ -194,6 +196,13 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
             if best_gen_fitness > best_overall_fitness:
                 best_overall_fitness    = best_gen_fitness
                 best_overall_individual = list(best_gen_individual)
+                no_improve = 0
+            else:
+                no_improve += 1
+
+            if no_improve >= PATIENCE:
+                print(f"  Parada anticipada (sin mejora en {PATIENCE} generaciones consecutivas)")
+                break
 
             new_population = [list(best_gen_individual)]  # elitismo
             while len(new_population) < pop_size:
