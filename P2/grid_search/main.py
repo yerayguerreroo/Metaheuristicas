@@ -1,19 +1,31 @@
 import pandas as pd 
 import time
+import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 
-from resultados import guardar_en_csv
+try:
+    # Intenta importar asumiendo que se ejecuta desde el main principal (P2/main.py)
+    from grid_search.resultados import guardar_en_csv
+except ModuleNotFoundError:
+    # Si falla, asume que se está ejecutando directamente este archivo (grid_search/main.py)
+    from resultados import guardar_en_csv
 
-def main():
+def grid_search():
     print("Cargando el dataset")
 
-    #Aqui cargamos el dataset (winequality-red.csv)
+    # Calculamos la ruta absoluta al dataset de forma dinámica
+    directorio_actual = os.path.dirname(os.path.abspath(__file__)) # Carpeta grid_search
+    ruta_dataset = os.path.join(directorio_actual, "..", "winequality-red.csv")
+    
+    # Normalizamos la ruta para que sea limpia (resuelve el "..")
+    ruta_dataset = os.path.abspath(ruta_dataset)
+
     try: 
-        data = pd.read_csv("../winequality-red.csv", sep = ';')
+        data = pd.read_csv(ruta_dataset, sep = ';')
     except FileNotFoundError:
-        print("Error al cargar el dataset")
-        return 
+        print(f"Error al cargar el dataset. Buscado en: {ruta_dataset}")
+        return
 
     #Convertimos nuestro problema a una clasificación binaria como se indica en el enunciado (>= 6 => bueno (1) < 6 => malo (0))
     data["quality"] = (data["quality"] >= 6).astype(int)
@@ -78,4 +90,4 @@ def main():
     )
 
 if __name__ == "__main__":
-    main()
+    grid_search()

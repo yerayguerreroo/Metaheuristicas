@@ -1,10 +1,7 @@
 from random_search.main import random_search
 from random_forest import evaluate_solution
 from algoritmo_genetico.main import run_genetic_algorithm
-# from hill_climbing.main import hill_climbing, hill_climbing_maxima_pendiente
-# from simulated_annealing.main import simulated_annealing
-# from reports import  reporte_SA, reporte_HC_Simple, reporte_HC_Maxima_Pendiente, reporte_RS
-# from random_search.plotting import plot_series_with_piecewise_lines
+from grid_search.main import grid_search
 import numpy as np
 
 def menu():
@@ -28,10 +25,15 @@ def menu():
             print("-"*50)
 
         elif opcion == '2':
-            print("GS")
+            grid_search()
 
         elif opcion == '3':
-            resultados_ga = run_genetic_algorithm()
+
+            POP_SIZE      = 50
+            GENERATIONS   = 50
+            MUTATION_RATE = 0.1
+
+            resultados_ga = run_genetic_algorithm(pop_size=POP_SIZE, generations=GENERATIONS, mutation_rate=MUTATION_RATE, adaptive_pc_pm=True)
             print(f"Resultados: {resultados_ga}")
             resultados = evaluate_solution(resultados_ga)
             print(f"Resultados: {resultados}")

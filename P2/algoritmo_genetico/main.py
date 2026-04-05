@@ -3,7 +3,13 @@ import numpy as np
 import random
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
-from guardardatosexcel import guardar_resultados_excel
+
+try:
+    # Intenta importar asumiendo que se ejecuta desde el main principal (P2/main.py)
+    from algoritmo_genetico.guardardatosexcel import guardar_resultados_excel
+except ModuleNotFoundError:
+    # Si falla, asume que se está ejecutando directamente este archivo (algoritmo_genetico/main.py)
+    from guardardatosexcel import guardar_resultados_excel
 
 # --- 1. PREPARACIÓN DE DATOS (Basado en el enunciado) ---
 try:
