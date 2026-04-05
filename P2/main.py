@@ -33,10 +33,8 @@ def menu():
             GENERATIONS   = 50
             MUTATION_RATE = 0.1
 
-            resultados_ga = run_genetic_algorithm(pop_size=POP_SIZE, generations=GENERATIONS, mutation_rate=MUTATION_RATE, adaptive_pc_pm=True)
-            print(f"Resultados: {resultados_ga}")
-            resultados = evaluate_solution(resultados_ga)
-            print(f"Resultados: {resultados}")
+            resultado_ga = run_genetic_algorithm(pop_size=POP_SIZE, generations=GENERATIONS, mutation_rate=MUTATION_RATE, adaptive_pc_pm=True)
+            print(f"Mejor resultado: {resultado_ga}")
         
         else:
             print("Opción No Válida")
