@@ -154,18 +154,21 @@ def mutate_creep(individual, mutation_rate):
 #	fin mientras
 #fin
 
-def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
+def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
                           mutation_method='random', crossover_method='uniform',
-                          model='generational', adaptive_pc_pm=False):
+                          model='generational', adaptive_pc_pm='improvement',
+                          elite_pct=0.1):
     print(f"Iniciando Algoritmo Genético... [mutación: {mutation_method} | cruce: {crossover_method} | modelo: {model} | adaptive: {adaptive_pc_pm}]")
 
     mutate    = mutate_random if mutation_method == 'random' else mutate_creep
     crossover = uniform_crossover if crossover_method == 'uniform' else two_point_crossover
 
-    # Pc/Pm adaptativos: parten de 0.5 y divergen linealmente con Pc+Pm=1
-    # Pc: 0.5 → 0.9 (más cruce al final cuando la población converge... espera, es al revés)
-    # Pc: 0.9 → 0.1 (menos cruce conforme converge), Pm: 0.1 → 0.9 (más mutación al final)
-    PC_MAX, PC_MIN = 0.9, 0.1  # límites para evitar que alguno llegue a 0 o 1
+    PC_MAX, PC_MIN = 0.9, 0.1
+    DELTA = 0.05  # paso de ajuste por generación en modo 'improvement'
+
+    # Ambos modos parten de 0.5/0.5
+    Pc = 0.5
+    Pm = 0.5
 
     population = initialize_population(pop_size)
     fitnesses  = [evaluate_solution(ind) for ind in population]
@@ -177,12 +180,17 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
     for t in range(generations):
         print(f"\n--- Generación {t+1}/{generations} ---")
 
-        # Calcular Pc y Pm para esta generación si modo adaptativo activo
-        if adaptive_pc_pm and generations > 1:
-            Pc = PC_MAX - (PC_MAX - PC_MIN) * t / (generations - 1)  # 0.9 → 0.1
-            Pm = 1 - Pc                                               # 0.1 → 0.9
+        # Calcular Pc y Pm según el modo elegido
+        if adaptive_pc_pm == 'linear' and generations > 1:
+            # Lineal: Pc 0.9→0.1, Pm 0.1→0.9 a lo largo de todas las generaciones
+            Pc = PC_MAX - (PC_MAX - PC_MIN) * t / (generations - 1)
+            Pm = 1 - Pc
+        elif adaptive_pc_pm == 'improvement':
+            # Basado en mejora: si hubo mejora → subir Pc (explotar), si no → subir Pm (explorar)
+            # Se actualiza al final de cada generación según no_improve
+            pass  # Pc y Pm se actualizan al final del bucle
         else:
-            Pc = 1.0        # cruce siempre (comportamiento original)
+            Pc = 1.0
             Pm = mutation_rate
 
         if model == 'generational':
@@ -204,7 +212,9 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
                 print(f"  Parada anticipada (sin mejora en {PATIENCE} generaciones consecutivas)")
                 break
 
-            new_population = [list(best_gen_individual)]  # elitismo
+            n_elite = max(1, int(pop_size * elite_pct))
+            elite_indices = sorted(range(len(fitnesses)), key=lambda i: fitnesses[i], reverse=True)[:n_elite]
+            new_population = [list(population[i]) for i in elite_indices]
             while len(new_population) < pop_size:
                 parent1 = tournament_selection(population, fitnesses)
                 parent2 = tournament_selection(population, fitnesses)
@@ -224,6 +234,16 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
 
             population = new_population
             fitnesses  = [evaluate_solution(ind) for ind in population]
+
+            # Actualizar Pc/Pm basado en si hubo mejora esta generación
+            if adaptive_pc_pm == 'improvement':
+                if no_improve == 0:
+                    # Hubo mejora → explotar más: subir Pc, bajar Pm
+                    Pc = min(PC_MAX, Pc + DELTA)
+                else:
+                    # Sin mejora → explorar más: bajar Pc, subir Pm
+                    Pc = max(PC_MIN, Pc - DELTA)
+                Pm = 1 - Pc
 
         else:  # steady-state
             # Cada "generación" = pop_size reemplazos → mismo nº de evaluaciones que generacional
@@ -256,35 +276,41 @@ def run_genetic_algorithm(pop_size=20, generations=10, mutation_rate=0.1,
     return best_overall_individual, best_overall_fitness
 
 
-# --- EJECUCIÓN FINAL ---
+# --- COMPARACIÓN: ELITISMO 1 INDIVIDUO vs 10% ---
 
 if __name__ == "__main__":
 
     POP_SIZE      = 50
     GENERATIONS   = 50
     MUTATION_RATE = 0.1
-    N_REPS        = 5
+    N_REPS        = 3
 
-    results     = []
-    best_params = None
-    best_fitness = -1
+    configs      = {'elite_1': 1/50, 'elite_10pct': 0.1}
+    results      = {k: [] for k in configs}
+    best_params  = {k: None for k in configs}
+    best_fitness = {k: -1 for k in configs}
 
-    for rep in range(N_REPS):
-        print(f"\n[Rep {rep+1}/{N_REPS}]")
-        params, fitness = run_genetic_algorithm(
-            pop_size=POP_SIZE, generations=GENERATIONS,
-            mutation_rate=MUTATION_RATE, adaptive_pc_pm=True
-        )
-        results.append(fitness)
-        if fitness > best_fitness:
-            best_fitness = fitness
-            best_params  = params
+    for label, pct in configs.items():
+        for rep in range(N_REPS):
+            print(f"\n[{label}] Rep {rep+1}/{N_REPS}")
+            params, fitness = run_genetic_algorithm(
+                pop_size=POP_SIZE, generations=GENERATIONS,
+                mutation_rate=MUTATION_RATE, elite_pct=pct
+            )
+            results[label].append(fitness)
+            if fitness > best_fitness[label]:
+                best_fitness[label] = fitness
+                best_params[label]  = params
 
     print("\n" + "="*50)
-    print("RESULTADOS FINALES")
+    print("COMPARACIÓN ELITISMO 1 INDIVIDUO vs 10%")
     print("="*50)
-    print(f"  media: {np.mean(results):.4f}  std: {np.std(results):.4f}  mejor: {max(results):.4f}")
+    for label, fitnesses in results.items():
+        print(f"  {label:12s} → media: {np.mean(fitnesses):.4f}  "
+              f"std: {np.std(fitnesses):.4f}  "
+              f"mejor: {max(fitnesses):.4f}")
     print("="*50)
 
-    prefijo = f"ag_final_pop{POP_SIZE}_gen{GENERATIONS}_reps{N_REPS}"
-    guardar_resultados_excel(best_params, best_fitness, PARAM_NAMES, prefijo)
+    for label in configs:
+        prefijo = f"ag_elitismo-{label}_pop{POP_SIZE}_gen{GENERATIONS}_reps{N_REPS}"
+        guardar_resultados_excel(best_params[label], best_fitness[label], PARAM_NAMES, prefijo)
