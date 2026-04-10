@@ -25,5 +25,5 @@ def evaluate_solution(params):
     min_impurity_decrease=float(params[9]),
     random_state=42
     )
-    scores = cross_val_score(model, X, y, cv=5, scoring="accuracy")
+    scores = cross_val_score(model, X, y, cv=5, scoring="accuracy", n_jobs=-1)
     return scores.mean()
