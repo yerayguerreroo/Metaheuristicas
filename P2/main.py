@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'grid_search'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'algoritmo_genetico'))
 
 from random_search.main import random_search
-from grid_search.main import main as grid_search
+from grid_search.main import grid_search
 from algoritmo_genetico.main import run_genetic_algorithm
 
 def menu():
