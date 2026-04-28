@@ -12,13 +12,19 @@ from graficar import plot_individual_and_boundary
 
 # Para A -3.5 3.5
 # Para B -1.5 1.5
-X_MIN, X_MAX = -3.5, 3.5
-Y_MIN, Y_MAX = -3.5, 3.5
+X_MIN, X_MAX = -1.5, 1.5
+Y_MIN, Y_MAX = -1.5, 1.5
 
-LAMBDA = 10.0   # Penalización por clase igual
+PUNTOS = 50
+PATIENCE   = 20  # generaciones consecutivas sin mejora para parar
+
+# Importancia: Bien clasificados > Distancia > Dispersión
+
+LAMBDA = 20.0   # Penalización por clase igual
 MU     = 0.5    # Peso de la dispersión
+DELTA  = 5.0    # Peso de la distancia entre puntos
 
-bb = BlackBoxModel("blackbox_modelA.pkl")
+bb = BlackBoxModel("blackbox_modelB.pkl")
 
 # Acumulador de puntos medios de pares ya encontrados
 found_midpoints = []
@@ -28,7 +34,11 @@ all_pairs = []
 def main():
     
     #print(evaluate_solution(initialize_individual(8)))
-    plot_individual_and_boundary(initialize_individual(26), bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+    mejor_individuo, _ = run_genetic_algorithm(pop_size=100, generations=200, mutation_rate=0.1, adaptive_pc_pm='improvement')
+
+    print(f"\nMejor individuo: {mejor_individuo}")
+
+    plot_individual_and_boundary(mejor_individuo, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
 
 
 # ==============================================================================
@@ -89,7 +99,7 @@ def evaluate_solution(params):
             disp = min(np.linalg.norm(m - mj) for mj in local_midpoints)
 
         # Sumamos el fitness de este par al total del individuo
-        total_fitness += (dist + P_clase - MU * disp)
+        total_fitness += (-DELTA * dist - P_clase + MU * disp)
         
         # Añadimos el punto medio al registro local
         local_midpoints.append(m)
@@ -116,21 +126,25 @@ def uniform_crossover(parent1, parent2):
     child = []
     for i in range(len(parent1)):
         if random.random() < 0.5:
-            child.append(parent1[i])
+            child.append(list(parent1[i]))
         else:
-            child.append(parent2[i])
+            child.append(list(parent2[i]))
     return child
 
 def two_point_crossover(parent1, parent2):
     """
     Cruce en dos puntos: se eligen dos cortes aleatorios c1 y c2.
     El hijo toma [0..c1] de parent1, [c1+1..c2] de parent2, [c2+1..fin] de parent1.
-    Preserva bloques contiguos de genes de cada padre. Menos mezcla que el uniforme
-    pero más que el cruce en un punto.
     """
     n = len(parent1)
     c1, c2 = sorted(random.sample(range(n), 2))
-    return parent1[:c1+1] + parent2[c1+1:c2+1] + parent1[c2+1:]
+    # FIX: copia profunda de cada punto para no compartir referencias
+    child = (
+        [list(p) for p in parent1[:c1 + 1]] +
+        [list(p) for p in parent2[c1 + 1:c2 + 1]] +
+        [list(p) for p in parent1[c2 + 1:]]
+    )
+    return child
 
 # ==============================================================================
 # 4. OPERADORES DE MUTACIÓN
@@ -140,35 +154,24 @@ def mutate_random(individual, mutation_rate):
     """Mutación aleatoria: resetea el gen a un valor completamente nuevo dentro de sus límites."""
     for i in range(len(individual)):
         if random.random() < mutation_rate:
-            individual[i] = generate_random_gene(i)
+            individual[i][0] = random.uniform(X_MIN, X_MAX)
+            individual[i][1] = random.uniform(Y_MIN, Y_MAX)
     return individual
 
-def mutate_creep(individual, mutation_rate):
+def mutate_creep(individual, mutation_rate, creep_scale=0.1):
     """
-    Mutación por perturbación (creep): en lugar de resetear el gen completamente,
-    le suma un pequeño delta proporcional al rango del parámetro (±10%).
-    Útil en generaciones avanzadas: hace ajustes finos cerca de buenas soluciones
-    en lugar de destruirlas con un salto aleatorio grande.
-    Los genes binarios (bootstrap, criterion, class_weight) se tratan igual que
-    en la mutación aleatoria — no tiene sentido perturbar un valor 0/1.
+    Mutación por perturbación (creep): suma un pequeño delta al punto existente.
+    Hace ajustes finos cerca de buenas soluciones en lugar de destruirlas con un
+    salto aleatorio grande.
     """
-    BINARY_GENES = {5, 6, 7}  # índices de genes binarios
-
+    rango_x = X_MAX - X_MIN
+    rango_y = Y_MAX - Y_MIN
     for i in range(len(individual)):
         if random.random() < mutation_rate:
-            min_val, max_val, gene_type = PARAM_BOUNDS[i]
-
-            if i in BINARY_GENES:
-                # Para binarios: flip igual que antes
-                individual[i] = 1 - individual[i]
-            else:
-                delta = random.uniform(-0.1 * (max_val - min_val),
-                                        0.1 * (max_val - min_val))
-                new_val = individual[i] + delta
-                # Clamp: mantener el valor dentro de los límites del parámetro
-                new_val = max(min_val, min(max_val, new_val))
-                individual[i] = int(round(new_val)) if gene_type == int else new_val
-
+            dx = random.uniform(-creep_scale * rango_x, creep_scale * rango_x)
+            dy = random.uniform(-creep_scale * rango_y, creep_scale * rango_y)
+            individual[i][0] = max(X_MIN, min(X_MAX, individual[i][0] + dx))
+            individual[i][1] = max(Y_MIN, min(Y_MAX, individual[i][1] + dy))
     return individual
 
 # --- 5. BUCLE PRINCIPAL DEL ALGORITMO GENÉTICO ---
@@ -190,6 +193,15 @@ def mutate_creep(individual, mutation_rate):
 #fin
 
 # ==============================================================================
+# 6. COPIA PROFUNDA DE UN INDIVIDUO
+# ==============================================================================
+ 
+def deep_copy_individual(individual):
+    """Devuelve una copia completamente independiente del individuo."""
+    return [list(point) for point in individual]
+
+
+# ==============================================================================
 # 5. BUCLE PRINCIPAL DEL ALGORITMO GENÉTICO
 # ==============================================================================
 
@@ -209,12 +221,11 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
     Pc = 0.5
     Pm = 0.5
 
-    population = initialize_population(pop_size)
+    population = initialize_population(pop_size, PUNTOS)
     fitnesses  = [evaluate_solution(ind) for ind in population]
     best_overall_individual = None
-    best_overall_fitness = -1
+    best_overall_fitness = -float('inf')
     no_improve = 0
-    PATIENCE   = 10  # generaciones consecutivas sin mejora para parar
 
     for t in range(generations):
         print(f"\n--- Generación {t+1}/{generations} ---")
@@ -242,7 +253,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
 
             if best_gen_fitness > best_overall_fitness:
                 best_overall_fitness    = best_gen_fitness
-                best_overall_individual = list(best_gen_individual)
+                best_overall_individual = deep_copy_individual(best_gen_individual)
                 no_improve = 0
             else:
                 no_improve += 1
@@ -253,7 +264,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
 
             n_elite = max(1, int(pop_size * elite_pct))
             elite_indices = sorted(range(len(fitnesses)), key=lambda i: fitnesses[i], reverse=True)[:n_elite]
-            new_population = [list(population[i]) for i in elite_indices]
+            new_population = [deep_copy_individual(population[i]) for i in elite_indices]
             while len(new_population) < pop_size:
                 parent1 = tournament_selection(population, fitnesses)
                 parent2 = tournament_selection(population, fitnesses)
@@ -266,8 +277,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
 
                 # Pm: probabilidad de mutar el individuo (muta un gen aleatorio)
                 if random.random() < Pm:
-                    gene_idx = random.randint(0, len(child) - 1)
-                    child[gene_idx] = generate_random_gene(gene_idx)
+                    child = mutate(child, mutation_rate)
 
                 new_population.append(child)
 
