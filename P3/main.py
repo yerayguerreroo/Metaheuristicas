@@ -15,14 +15,14 @@ from graficar import plot_individual_and_boundary
 X_MIN, X_MAX = -1.5, 1.5
 Y_MIN, Y_MAX = -1.5, 1.5
 
-PUNTOS = 70
-PATIENCE = 20  # generaciones consecutivas sin mejora para parar
+PUNTOS = 50
+PATIENCE = 30  # generaciones consecutivas sin mejora para parar
 
 # Importancia: Bien clasificados > Distancia > Dispersión
 
-LAMBDA = 20.0   # Penalización por clase igual
-DELTA  = 5.0    # Peso de la distancia entre puntos
-MU     = 0.5    # Peso de la dispersión
+LAMBDA = 100.0   # Penalización por clase igual
+DELTA  = 10.0    # Peso de la distancia entre puntos
+MU     = 5.0    # Peso de la dispersión
 
 bb = BlackBoxModel("blackbox_modelB.pkl")
 
@@ -34,7 +34,7 @@ all_pairs = []
 def main():
     
     #print(evaluate_solution(initialize_individual(8)))
-    mejor_individuo, _ = run_genetic_algorithm(pop_size=100, generations=200, mutation_rate=0.1, adaptive_pc_pm='improvement')
+    mejor_individuo, _ = run_genetic_algorithm(pop_size=100, generations=300, mutation_method='creep', adaptive_pc_pm='improvement')
 
     print(f"\nMejor individuo: {mejor_individuo}")
 
@@ -122,13 +122,15 @@ def tournament_selection(population, fitnesses, k=3):
 # ==============================================================================
 
 def uniform_crossover(parent1, parent2):
-    """Cruza dos padres gen a gen con 50% de probabilidad"""
+    """Cruza dos padres par a par (de 2 en 2 genes) con 50% de probabilidad"""
     child = []
-    for i in range(len(parent1)):
+    for i in range(0, len(parent1), 2):
         if random.random() < 0.5:
-            child.append(list(parent1[i]))
+            # Hereda el par completo del padre 1
+            child.extend([list(parent1[i]), list(parent1[i+1])])
         else:
-            child.append(list(parent2[i]))
+            # Hereda el par completo del padre 2
+            child.extend([list(parent2[i]), list(parent2[i+1])])
     return child
 
 def two_point_crossover(parent1, parent2):
