@@ -1,8 +1,5 @@
-import pandas as pd
 import numpy as np
 import random
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import cross_val_score
 from blackbox import BlackBoxModel
 from graficar import plot_individual_and_boundary
 
