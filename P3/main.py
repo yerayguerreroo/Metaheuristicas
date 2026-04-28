@@ -15,14 +15,14 @@ from graficar import plot_individual_and_boundary
 X_MIN, X_MAX = -1.5, 1.5
 Y_MIN, Y_MAX = -1.5, 1.5
 
-PUNTOS = 50
-PATIENCE   = 20  # generaciones consecutivas sin mejora para parar
+PUNTOS = 70
+PATIENCE = 20  # generaciones consecutivas sin mejora para parar
 
 # Importancia: Bien clasificados > Distancia > Dispersión
 
 LAMBDA = 20.0   # Penalización por clase igual
-MU     = 0.5    # Peso de la dispersión
 DELTA  = 5.0    # Peso de la distancia entre puntos
+MU     = 0.5    # Peso de la dispersión
 
 bb = BlackBoxModel("blackbox_modelB.pkl")
 
