@@ -1,5 +1,8 @@
 import numpy as np
 import random
+import sys
+import os
+import csv
 from blackbox import BlackBoxModel
 from graficar import plot_individual_and_boundary
 
@@ -12,14 +15,26 @@ from graficar import plot_individual_and_boundary
 X_MIN, X_MAX = -1.5, 1.5
 Y_MIN, Y_MAX = -1.5, 1.5
 
-PUNTOS = 50
+MAX_DISP_NORM = np.sqrt((X_MAX - X_MIN)**2 + (Y_MAX - Y_MIN)**2)
+
+if len(sys.argv) > 1:
+    try:
+        PUNTOS = int(sys.argv[1])
+    except ValueError:
+        print(f"Advertencia: '{sys.argv[1]}' no es un número válido. Usando 50 puntos por defecto.")
+        PUNTOS = 50
+else:
+    PUNTOS = 50  # Valor por defecto si lo ejecutas sin argumentos
+
+print(f"\n---> CONFIGURACIÓN: Ejecutando con {PUNTOS} puntos <---")
+
 PATIENCE = 30  # generaciones consecutivas sin mejora para parar
 
 # Importancia: Bien clasificados > Distancia > Dispersión
 
 LAMBDA = 100.0   # Penalización por clase igual
-DELTA  = 10.0    # Peso de la distancia entre puntos
-MU     = 5.0    # Peso de la dispersión
+DELTA  = 15.0    # Peso de la distancia entre puntos
+MU     = 1.0    # Peso de la dispersión
 
 bb = BlackBoxModel("blackbox_modelB.pkl")
 
@@ -29,11 +44,14 @@ found_midpoints = []
 all_pairs = []
 
 def main():
-    
+    poblacion_dinamica = PUNTOS * 7      
+    generaciones_dinamicas = PUNTOS * 10
     #print(evaluate_solution(initialize_individual(8)))
-    mejor_individuo, _ = run_genetic_algorithm(pop_size=100, generations=300, mutation_method='creep', adaptive_pc_pm='improvement')
+    mejor_individuo, mejor_fitness = run_genetic_algorithm(pop_size=poblacion_dinamica, generations=generaciones_dinamicas, mutation_method='creep', adaptive_pc_pm='improvement')
 
-    print(f"\nMejor individuo: {mejor_individuo}")
+    #print(f"\nMejor individuo: {mejor_individuo}")
+
+    guardar_resultado_csv(PUNTOS, mejor_fitness)
 
     plot_individual_and_boundary(mejor_individuo, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
 
@@ -68,38 +86,44 @@ def evaluate_solution(params):
     Evalúa un individuo que es un vector 2D de N puntos.
     params: [[x1, y1], [x2, y2], [x3, y3], [x4, y4], ...]
     """
-    # Convertimos a un array de NumPy (si no lo es ya) para facilitar las matemáticas
+    # Convertimos a un array de NumPy para facilitar las matemáticas
     puntos = np.array(params)
     total_fitness = 0.0
+    num_pares = len(puntos) / 2
     
-    # Copiamos los puntos medios globales para la repulsión local
-    local_midpoints = list(found_midpoints) 
+    # 1. Calcular TODOS los midpoints del individuo de una vez
+    p1s = puntos[0::2]
+    p2s = puntos[1::2]
+    midpoints_individuo = (p1s + p2s) / 2.0
 
-    # Iteramos la matriz saltando de 2 en 2 para agarrar pares (p1 y p2)
-    for i in range(0, len(puntos), 2):
-        p1 = puntos[i]
-        p2 = puntos[i+1]
+    # 2. PREDICCIÓN EN BATCH (¡Súper rápido!)
+    all_points = np.vstack([p1s, p2s])
+    all_preds  = bb.predict(all_points) 
+    f1s = all_preds[:len(p1s)]
+    f2s = all_preds[len(p1s):]
+
+    # 2. Evaluar cada par de puntos
+    for i in range(len(p1s)):
+        p1, p2 = p1s[i], p2s[i]
 
         # 1. Distancia euclídea
         dist = np.linalg.norm(p1 - p2)
 
         # 2. Penalización de clase
-        f1 = bb.predict(p1)
-        f2 = bb.predict(p2)
-        P_clase = 0.0 if f1 != f2 else LAMBDA
+        P_clase = 0.0 if f1s[i] != f2s[i] else LAMBDA
 
         # 3. Dispersión del punto medio respecto a los ya encontrados
-        m = (p1 + p2) / 2.0
-        if len(local_midpoints) == 0:
-            disp = 0.0  
+        m = midpoints_individuo[i]
+        otros = np.delete(midpoints_individuo, i, axis=0)
+        if len(otros) > 0:
+            disp = np.min(np.linalg.norm(otros - m, axis=1))
         else:
-            disp = min(np.linalg.norm(m - mj) for mj in local_midpoints)
+            disp = MAX_DISP_NORM
+
+        disp_normalizada = min(disp * num_pares, MAX_DISP_NORM)
 
         # Sumamos el fitness de este par al total del individuo
-        total_fitness += (-DELTA * dist - P_clase + MU * disp)
-        
-        # Añadimos el punto medio al registro local
-        local_midpoints.append(m)
+        total_fitness += (-DELTA * dist - P_clase + MU * disp_normalizada)/num_pares
 
     # El AG maximiza → devolvemos negativo
     return total_fitness
@@ -213,7 +237,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
     mutate    = mutate_random if mutation_method == 'random' else mutate_creep
     crossover = uniform_crossover if crossover_method == 'uniform' else two_point_crossover
 
-    PC_MAX, PC_MIN = 0.9, 0.1
+    PC_MAX, PC_MIN = 0.8, 0.2
     DELTA = 0.05  # paso de ajuste por generación en modo 'improvement'
 
     # Ambos modos parten de 0.5/0.5
@@ -322,6 +346,21 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
     print(best_overall_individual)
 
     return best_overall_individual, best_overall_fitness
+
+
+def guardar_resultado_csv(num_puntos, fitness):
+    """Guarda el número de puntos y el fitness en un archivo CSV."""
+    nombre_archivo = "resultados_experimentos.csv"
+    file_exists = os.path.isfile(nombre_archivo)
+    
+    with open(nombre_archivo, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        # Si el archivo es nuevo, escribimos la cabecera
+        if not file_exists:
+            writer.writerow(["Num_Puntos", "Fitness_Obtenido"])
+        
+        writer.writerow([num_puntos, fitness])
+    print(f"\n[INFO] Resultado guardado en {nombre_archivo}")
 
 
 # --- COMPARACIÓN: ELITISMO 1 INDIVIDUO vs 10% ---

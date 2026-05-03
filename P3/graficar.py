@@ -174,4 +174,16 @@ def plot_individual_and_boundary(individual, model, x_min, x_max, y_min, y_max, 
     plt.ylabel("Y")
     plt.title(title)
     plt.grid(alpha=0.3)
+
+    num_puntos = len(individual)
+    
+    # Guardamos la figura en la carpeta actual
+    nombre_archivo = f"frontera_{num_puntos}_puntos.png"
+    plt.savefig(nombre_archivo, dpi=300, bbox_inches='tight')
+    
+    print(f"\n[INFO] Gráfico guardado como: {nombre_archivo}")
+    
+    # Cerramos la figura en memoria para que no consuma RAM en el bucle
+    plt.close()
+
     plt.show()
