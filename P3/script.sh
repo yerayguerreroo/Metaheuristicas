@@ -11,7 +11,7 @@ do
     echo "=================================================="
     echo "Ejecutando el algoritmo con $p puntos..."
     echo "=================================================="
-    python3 main.py $p
+    echo "5" | python3 main.py $p
 done
 
 echo ""

@@ -3,6 +3,7 @@ import random
 import sys
 import os
 import csv
+import time
 from blackbox import BlackBoxModel
 from graficar import plot_individual_and_boundary
 
@@ -10,10 +11,12 @@ from graficar import plot_individual_and_boundary
 # CONFIGURACIÓN GENERAL Y CONSTANTES
 # ==============================================================================
 
-# Para A -3.5 3.5
+# Para A
+#X_MIN, X_MAX = -3.5, 2.0
+#Y_MIN, Y_MAX = -2.0, 3.5
 # Para B -1.5 1.5
-X_MIN, X_MAX = -1.5, 1.5
-Y_MIN, Y_MAX = -1.5, 1.5
+X_MIN, X_MAX = -1.0, 1.0
+Y_MIN, Y_MAX = -1.0, 1.0
 
 MAX_DISP_NORM = np.sqrt((X_MAX - X_MIN)**2 + (Y_MAX - Y_MIN)**2)
 
@@ -32,28 +35,97 @@ PATIENCE = 30  # generaciones consecutivas sin mejora para parar
 
 # Importancia: Bien clasificados > Distancia > Dispersión
 
-LAMBDA = 100.0   # Penalización por clase igual
-DELTA  = 15.0    # Peso de la distancia entre puntos
-MU     = 1.0    # Peso de la dispersión
+# 1. Diagonal de tu espacio original optimizado [-1.5, 1.5]
+# L_original = sqrt(3^2 + 3^2) = 4.2426...
+DIAGONAL_ORIGINAL = np.sqrt((1.5 - (-1.5))**2 + (1.5 - (-1.5))**2)
+
+# 2. Factor de proporción entre el espacio nuevo y el optimizado
+FACTOR_ESCALA = MAX_DISP_NORM / DIAGONAL_ORIGINAL
+
+# 3. Hiperparámetros base
+LAMBDA_BASE = 100.0
+DELTA_BASE  = 20.0
+MU_BASE     = 1.2
+
+# 4. Hiperparámetros ajustados
+LAMBDA = LAMBDA_BASE
+DELTA  = DELTA_BASE / FACTOR_ESCALA
+MU     = MU_BASE / FACTOR_ESCALA
+BONUS_POR_PUNTO = 0.01  # Bonus leve por usar más puntos
 
 bb = BlackBoxModel("blackbox_modelB.pkl")
 
-# Acumulador de puntos medios de pares ya encontrados
-found_midpoints = []
-#Guarda todos los pares de puntos
-all_pairs = []
-
 def main():
+    # Pedir el número de iteraciones por teclado
+    try:
+        n_reps_str = input("\nIntroduce el número de veces que deseas ejecutar el algoritmo: ")
+        n_reps = int(n_reps_str)
+        if n_reps <= 0:
+            raise ValueError
+    except ValueError:
+        print("Valor inválido. Se ejecutará 1 vez por defecto.")
+        n_reps = 1
+
     poblacion_dinamica = PUNTOS * 7      
-    generaciones_dinamicas = PUNTOS * 10
-    #print(evaluate_solution(initialize_individual(8)))
-    mejor_individuo, mejor_fitness = run_genetic_algorithm(pop_size=poblacion_dinamica, generations=generaciones_dinamicas, mutation_method='creep', adaptive_pc_pm='improvement')
+    generaciones_dinamicas = PUNTOS * 20
+    
+    # Listas para almacenar los resultados de cada iteración
+    fitnesses_obtenidos = []
+    tiempos_obtenidos = []
 
-    #print(f"\nMejor individuo: {mejor_individuo}")
+    # Variables para rastrear al mejor absoluto de todas las ejecuciones
+    mejor_individuo_global = None
+    mejor_fitness_global = -float('inf')
 
-    guardar_resultado_csv(PUNTOS, mejor_fitness)
+    print(f"\n---> Iniciando {n_reps} ejecuciones del AG ({PUNTOS} puntos) <---")
 
-    plot_individual_and_boundary(mejor_individuo, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+    for i in range(n_reps):
+        print(f"\n{'='*50}")
+        print(f"EJECUCIÓN {i+1} DE {n_reps}")
+        print(f"{'='*50}")
+
+        start_time = time.time()
+        
+        mejor_ind, mejor_fit = run_genetic_algorithm(
+            pop_size=poblacion_dinamica, 
+            generations=generaciones_dinamicas, 
+            mutation_method='creep', 
+            adaptive_pc_pm='improvement'
+        )
+        
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        # Guardar datos de esta iteración
+        fitnesses_obtenidos.append(mejor_fit)
+        tiempos_obtenidos.append(elapsed_time)
+
+        # Comprobar si es el mejor histórico absoluto
+        if mejor_fit > mejor_fitness_global:
+            mejor_fitness_global = mejor_fit
+            # Es vital usar deep_copy para no perder la referencia si el individuo muta luego
+            mejor_individuo_global = deep_copy_individual(mejor_ind) 
+
+    # --- CÁLCULO DE ESTADÍSTICAS ---
+    media_fitness = np.mean(fitnesses_obtenidos)
+    std_fitness = np.std(fitnesses_obtenidos)
+    media_tiempo = np.mean(tiempos_obtenidos)
+    std_tiempo = np.std(tiempos_obtenidos)
+
+    print("\n" + "*"*50)
+    print("RESUMEN ESTADÍSTICO DE LAS EJECUCIONES")
+    print("*"*50)
+    print(f"Mejor Fitness Absoluto : {mejor_fitness_global:.4f}")
+    print(f"Fitness Medio          : {media_fitness:.4f} ± {std_fitness:.4f}")
+    print(f"Tiempo Medio           : {media_tiempo:.4f}s ± {std_tiempo:.4f}s")
+    print("*"*50)
+
+    # Guardar en CSV
+    guardar_estadisticas_csv(PUNTOS, n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
+
+    # Pintar solo la mejor solución global encontrada
+    if mejor_individuo_global is not None:
+        plot_individual_and_boundary(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
 
 
 # ==============================================================================
@@ -102,30 +174,38 @@ def evaluate_solution(params):
     f1s = all_preds[:len(p1s)]
     f2s = all_preds[len(p1s):]
 
-    # 2. Evaluar cada par de puntos
-    for i in range(len(p1s)):
-        p1, p2 = p1s[i], p2s[i]
+    # 1. Distancias euclídeas de todos los pares de golpe
+    dists = np.linalg.norm(p1s - p2s, axis=1)
 
-        # 1. Distancia euclídea
-        dist = np.linalg.norm(p1 - p2)
+    # 2. Penalizaciones de clase de todos los pares de golpe
+    # Si son distintos, penalización 0.0, si son iguales, LAMBDA
+    p_clases = np.where(f1s != f2s, 0.0, LAMBDA)
 
-        # 2. Penalización de clase
-        P_clase = 0.0 if f1s[i] != f2s[i] else LAMBDA
+    # 3. Dispersión: Matriz de distancias entre todos los midpoints de golpe (Broadcasting)
+    if len(midpoints_individuo) > 1:
+        # Restamos cada midpoint con todos los demás simultáneamente
+        diffs = midpoints_individuo[:, np.newaxis, :] - midpoints_individuo[np.newaxis, :, :]
+        dist_matrix = np.linalg.norm(diffs, axis=2)
+        
+        # Llenamos la diagonal con infinito para que un punto no se encuentre a sí mismo como el más cercano
+        np.fill_diagonal(dist_matrix, np.inf)
+        
+        # Cogemos la distancia mínima para cada punto
+        disps = np.min(dist_matrix, axis=1)
+    else:
+        # Si solo hay un par, la dispersión es la máxima por defecto
+        disps = np.array([MAX_DISP_NORM])
 
-        # 3. Dispersión del punto medio respecto a los ya encontrados
-        m = midpoints_individuo[i]
-        otros = np.delete(midpoints_individuo, i, axis=0)
-        if len(otros) > 0:
-            disp = np.min(np.linalg.norm(otros - m, axis=1))
-        else:
-            disp = MAX_DISP_NORM
+    # Normalizamos todas las dispersiones y las limitamos a MAX_DISP_NORM
+    disps_normalizadas = np.clip(disps * num_pares, 0.0, MAX_DISP_NORM)
 
-        disp_normalizada = min(disp * num_pares, MAX_DISP_NORM)
+    # 4. Calcular el fitness final sumando los arrays vectorizados
+    fitness_por_par = (-DELTA * dists - p_clases + MU * disps_normalizadas) / num_pares
+    
+    total_fitness = np.sum(fitness_por_par)
 
-        # Sumamos el fitness de este par al total del individuo
-        total_fitness += (-DELTA * dist - P_clase + MU * disp_normalizada)/num_pares
+    total_fitness += BONUS_POR_PUNTO * len(puntos)
 
-    # El AG maximiza → devolvemos negativo
     return total_fitness
 
 # ==============================================================================
@@ -181,7 +261,7 @@ def mutate_random(individual, mutation_rate):
             individual[i][1] = random.uniform(Y_MIN, Y_MAX)
     return individual
 
-def mutate_creep(individual, mutation_rate, creep_scale=0.1):
+def mutate_creep(individual, mutation_rate, creep_scale=0.025):
     """
     Mutación por perturbación (creep): suma un pequeño delta al punto existente.
     Hace ajustes finos cerca de buenas soluciones en lugar de destruirlas con un
@@ -348,57 +428,37 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
     return best_overall_individual, best_overall_fitness
 
 
-def guardar_resultado_csv(num_puntos, fitness):
-    """Guarda el número de puntos y el fitness en un archivo CSV."""
-    nombre_archivo = "resultados_experimentos.csv"
+def guardar_estadisticas_csv(num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
+    """Guarda las estadísticas completas de las ejecuciones en un archivo CSV."""
+    nombre_archivo = "estadisticas_experimentos.csv"
     file_exists = os.path.isfile(nombre_archivo)
     
     with open(nombre_archivo, mode='a', newline='') as file:
         writer = csv.writer(file)
         # Si el archivo es nuevo, escribimos la cabecera
         if not file_exists:
-            writer.writerow(["Num_Puntos", "Fitness_Obtenido"])
+            writer.writerow([
+                "Num_Puntos", 
+                "Ejecuciones", 
+                "Media_Fitness", 
+                "Std_Fitness", 
+                "Media_Tiempo(s)", 
+                "Std_Tiempo(s)", 
+                "Mejor_Fitness_Global"
+            ])
         
-        writer.writerow([num_puntos, fitness])
-    print(f"\n[INFO] Resultado guardado en {nombre_archivo}")
+        # Redondeamos los valores flotantes para que el CSV quede limpio
+        writer.writerow([
+            num_puntos, 
+            num_ejecuciones, 
+            round(media_fit, 4), 
+            round(std_fit, 4), 
+            round(media_time, 4), 
+            round(std_time, 4), 
+            round(mejor_fit, 4)
+        ])
+    print(f"\n[INFO] Estadísticas guardadas correctamente en '{nombre_archivo}'")
 
-
-# --- COMPARACIÓN: ELITISMO 1 INDIVIDUO vs 10% ---
 
 if __name__ == "__main__":
     main()
-
-    # POP_SIZE      = 50
-    # GENERATIONS   = 50
-    # MUTATION_RATE = 0.1
-    # N_REPS        = 3
-
-    # configs      = {'elite_1': 1/50, 'elite_10pct': 0.1}
-    # results      = {k: [] for k in configs}
-    # best_params  = {k: None for k in configs}
-    # best_fitness = {k: -1 for k in configs}
-
-    # for label, pct in configs.items():
-    #     for rep in range(N_REPS):
-    #         print(f"\n[{label}] Rep {rep+1}/{N_REPS}")
-    #         params, fitness = run_genetic_algorithm(
-    #             pop_size=POP_SIZE, generations=GENERATIONS,
-    #             mutation_rate=MUTATION_RATE, elite_pct=pct
-    #         )
-    #         results[label].append(fitness)
-    #         if fitness > best_fitness[label]:
-    #             best_fitness[label] = fitness
-    #             best_params[label]  = params
-
-    # print("\n" + "="*50)
-    # print("COMPARACIÓN ELITISMO 1 INDIVIDUO vs 10%")
-    # print("="*50)
-    # for label, fitnesses in results.items():
-    #     print(f"  {label:12s} → media: {np.mean(fitnesses):.4f}  "
-    #           f"std: {np.std(fitnesses):.4f}  "
-    #           f"mejor: {max(fitnesses):.4f}")
-    # print("="*50)
-
-    # for label in configs:
-    #     prefijo = f"ag_elitismo-{label}_pop{POP_SIZE}_gen{GENERATIONS}_reps{N_REPS}"
-    #     guardar_resultados_excel(best_params[label], best_fitness[label], PARAM_NAMES, prefijo)
