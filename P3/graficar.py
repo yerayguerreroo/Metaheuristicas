@@ -142,7 +142,6 @@ def plot_individual_and_boundary(individual, model, x_min, x_max, y_min, y_max, 
         color = "blue" if c == 0 else "red"
         plt.scatter(p[0], p[1], color=color, s=80, edgecolor="black", zorder=3)
 
-    # --- NUEVO: Dibujar la frontera deducida ---
     # --- NUEVO: Dibujar la frontera deducida (Para formas cerradas) ---
     if len(midpoints) > 1:
         midpoints = np.array(midpoints)

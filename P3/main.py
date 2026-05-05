@@ -12,11 +12,11 @@ from graficar import plot_individual_and_boundary
 # ==============================================================================
 
 # Para A
-#X_MIN, X_MAX = -3.5, 2.0
-#Y_MIN, Y_MAX = -2.0, 3.5
+X_MIN, X_MAX = -3.5, 2.0
+Y_MIN, Y_MAX = -2.0, 3.5
 # Para B -1.5 1.5
-X_MIN, X_MAX = -1.0, 1.0
-Y_MIN, Y_MAX = -1.0, 1.0
+#X_MIN, X_MAX = -1.0, 1.0
+#Y_MIN, Y_MAX = -1.0, 1.0
 
 MAX_DISP_NORM = np.sqrt((X_MAX - X_MIN)**2 + (Y_MAX - Y_MIN)**2)
 
@@ -51,9 +51,9 @@ MU_BASE     = 1.2
 LAMBDA = LAMBDA_BASE
 DELTA  = DELTA_BASE / FACTOR_ESCALA
 MU     = MU_BASE / FACTOR_ESCALA
-BONUS_POR_PUNTO = 0.01  # Bonus leve por usar más puntos
+BONUS_POR_PUNTO = 0.0009  # Bonus leve por usar más puntos
 
-bb = BlackBoxModel("blackbox_modelB.pkl")
+bb = BlackBoxModel("blackbox_modelA.pkl")
 
 def main():
     # Pedir el número de iteraciones por teclado
@@ -204,7 +204,7 @@ def evaluate_solution(params):
     
     total_fitness = np.sum(fitness_por_par)
 
-    total_fitness += BONUS_POR_PUNTO * len(puntos)
+    total_fitness += BONUS_POR_PUNTO * len(puntos)**2
 
     return total_fitness
 
