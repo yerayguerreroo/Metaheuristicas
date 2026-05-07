@@ -5,35 +5,37 @@ import os
 import csv
 import time
 from blackbox import BlackBoxModel
-from graficar import plot_individual_and_boundary
+from graficar import plot_individual_and_boundary_modeloA, plot_individual_and_boundary_modeloB
 
 # ==============================================================================
 # CONFIGURACIÓN GENERAL Y CONSTANTES
 # ==============================================================================
 
+if len(sys.argv) > 1:
+    try:
+        MODELO = sys.argv[1]
+    except ValueError:
+        print(f"Advertencia: '{sys.argv[1]}' no es un número válido. Usando 50 MODELO por defecto.")
+        MODELO = "A"
+else:
+    MODELO = "A"  # Valor por defecto si lo ejecutas sin argumentos
+
+#MODELO = "A"  # o "B" 
+
+PUNTOS = 50
+
 # Para A
-X_MIN, X_MAX = -3.5, 2.0
-Y_MIN, Y_MAX = -2.0, 3.5
-# Para B -1.5 1.5
-#X_MIN, X_MAX = -1.0, 1.0
-#Y_MIN, Y_MAX = -1.0, 1.0
+if MODELO == "A":
+    X_MIN, X_MAX = -3.5, 2.0
+    Y_MIN, Y_MAX = -2.0, 3.5
+# Para B 
+else:
+    X_MIN, X_MAX = -1.0, 1.0
+    Y_MIN, Y_MAX = -1.0, 1.0
 
 MAX_DISP_NORM = np.sqrt((X_MAX - X_MIN)**2 + (Y_MAX - Y_MIN)**2)
 
-if len(sys.argv) > 1:
-    try:
-        PUNTOS = int(sys.argv[1])
-    except ValueError:
-        print(f"Advertencia: '{sys.argv[1]}' no es un número válido. Usando 50 puntos por defecto.")
-        PUNTOS = 50
-else:
-    PUNTOS = 50  # Valor por defecto si lo ejecutas sin argumentos
-
-print(f"\n---> CONFIGURACIÓN: Ejecutando con {PUNTOS} puntos <---")
-
 PATIENCE = 30  # generaciones consecutivas sin mejora para parar
-
-# Importancia: Bien clasificados > Distancia > Dispersión
 
 # 1. Diagonal de tu espacio original optimizado [-1.5, 1.5]
 # L_original = sqrt(3^2 + 3^2) = 4.2426...
@@ -45,15 +47,17 @@ FACTOR_ESCALA = MAX_DISP_NORM / DIAGONAL_ORIGINAL
 # 3. Hiperparámetros base
 LAMBDA_BASE = 100.0
 DELTA_BASE  = 20.0
-MU_BASE     = 1.2
+MU_BASE     = 8.0
 
 # 4. Hiperparámetros ajustados
 LAMBDA = LAMBDA_BASE
 DELTA  = DELTA_BASE / FACTOR_ESCALA
 MU     = MU_BASE / FACTOR_ESCALA
-BONUS_POR_PUNTO = 0.0009  # Bonus leve por usar más puntos
 
-bb = BlackBoxModel("blackbox_modelA.pkl")
+if MODELO == "A":
+    bb = BlackBoxModel("blackbox_modelA.pkl")
+else:
+    bb = BlackBoxModel("blackbox_modelB.pkl")
 
 def main():
     # Pedir el número de iteraciones por teclado
@@ -66,8 +70,8 @@ def main():
         print("Valor inválido. Se ejecutará 1 vez por defecto.")
         n_reps = 1
 
-    poblacion_dinamica = 200      
-    generaciones_dinamicas = 600
+    poblacion = 200    
+    generaciones = 600
     
     # Listas para almacenar los resultados de cada iteración
     fitnesses_obtenidos = []
@@ -77,7 +81,7 @@ def main():
     mejor_individuo_global = None
     mejor_fitness_global = -float('inf')
 
-    print(f"\n---> Iniciando {n_reps} ejecuciones del AG ({PUNTOS} puntos) <---")
+    print(f"\n---> Iniciando {n_reps} ejecuciones del AG puntos) <---")
 
     for i in range(n_reps):
         print(f"\n{'='*50}")
@@ -87,9 +91,10 @@ def main():
         start_time = time.time()
         
         mejor_ind, mejor_fit = run_genetic_algorithm(
-            pop_size=poblacion_dinamica, 
-            generations=generaciones_dinamicas, 
-            mutation_method='creep', 
+            pop_size=poblacion, 
+            generations=generaciones, 
+            mutation_method='creep_dynamic',
+            crossover_method='uniform', 
             adaptive_pc_pm='improvement'
         )
         
@@ -101,10 +106,20 @@ def main():
         tiempos_obtenidos.append(elapsed_time)
 
         # Comprobar si es el mejor histórico absoluto
-        if mejor_fit > mejor_fitness_global:
+        epsilon = 1e-5  # Margen para considerar dos floats como "iguales" (empate)
+        
+        if mejor_fit > mejor_fitness_global + epsilon:
+            # Si el fitness es claramente superior, actualizamos directamente
             mejor_fitness_global = mejor_fit
-            # Es vital usar deep_copy para no perder la referencia si el individuo muta luego
             mejor_individuo_global = deep_copy_individual(mejor_ind) 
+            print(f"  -> Nuevo MEJOR global encontrado: Fitness {mejor_fit:.4f} con {len(mejor_ind)} puntos.")
+            
+        elif abs(mejor_fit - mejor_fitness_global) <= epsilon:
+            # Si hay un empate técnico en fitness, miramos quién tiene más puntos
+            if mejor_individuo_global is not None and len(mejor_ind) > len(mejor_individuo_global):
+                mejor_fitness_global = mejor_fit
+                mejor_individuo_global = deep_copy_individual(mejor_ind)
+                print(f"  -> Empate en fitness ({mejor_fit:.4f}). Actualizado por tener MÁS puntos: {len(mejor_ind)}.")
 
     # --- CÁLCULO DE ESTADÍSTICAS ---
     media_fitness = np.mean(fitnesses_obtenidos)
@@ -121,11 +136,14 @@ def main():
     print("*"*50)
 
     # Guardar en CSV
-    guardar_estadisticas_csv(PUNTOS, n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
+    guardar_estadisticas_csv(MODELO, len(mejor_individuo_global), n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
 
     # Pintar solo la mejor solución global encontrada
     if mejor_individuo_global is not None:
-        plot_individual_and_boundary(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+        if MODELO == "A":
+            plot_individual_and_boundary_modeloA(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+        else:
+            plot_individual_and_boundary_modeloB(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
 
 
 # ==============================================================================
@@ -201,10 +219,11 @@ def evaluate_solution(params):
 
     # 4. Calcular el fitness final sumando los arrays vectorizados
     fitness_por_par = (-DELTA * dists - p_clases + MU * disps_normalizadas) / num_pares
-    
+
     total_fitness = np.sum(fitness_por_par)
 
-    total_fitness += BONUS_POR_PUNTO * len(puntos)**2
+    BONO_POR_PAR = 0.05 
+    total_fitness = total_fitness + (num_pares * BONO_POR_PAR)
 
     return total_fitness
 
@@ -277,23 +296,28 @@ def mutate_creep(individual, mutation_rate, creep_scale=0.025):
             individual[i][1] = max(Y_MIN, min(Y_MAX, individual[i][1] + dy))
     return individual
 
-# --- 5. BUCLE PRINCIPAL DEL ALGORITMO GENÉTICO ---
-
-#Inicio
-#	t=0;
-#	Inicializar P(t);
-#	Evaluar P(t);
-#	Mientras NO SE CUMPLA CRITERIO DE PARADA hacer
-#		Seleccionar P(t+1) desde P(t)
-#		Cruzar P(t+1)
-#		Mutar P(t+1)
-#		Evaluar P(t+1)
-#
-#		Reemplazar P(t) por P(t+1)
-#
-#		t=t+1
-#	fin mientras
-#fin
+def mutate_creep_dynamic(individual, mutation_rate, no_improve, patience, creep_inicial=0.05, creep_final=0.001):
+    """
+    Mutación por perturbación que reduce su radio de acción a medida que
+    el algoritmo se estanca, permitiendo un ajuste micrométrico antes de rendirse.
+    """
+    # El progreso va de 0.0 (recién mejorado) a 1.0 (a punto de rendirse)
+    progreso_estancamiento = no_improve / patience
+    
+    # Interpolación lineal del tamaño del salto
+    creep_scale = creep_inicial - progreso_estancamiento * (creep_inicial - creep_final)
+    
+    rango_x = X_MAX - X_MIN
+    rango_y = Y_MAX - Y_MIN
+    
+    for i in range(len(individual)):
+        if random.random() < mutation_rate:
+            dx = random.uniform(-creep_scale * rango_x, creep_scale * rango_x)
+            dy = random.uniform(-creep_scale * rango_y, creep_scale * rango_y)
+            individual[i][0] = max(X_MIN, min(X_MAX, individual[i][0] + dx))
+            individual[i][1] = max(Y_MIN, min(Y_MAX, individual[i][1] + dy))
+            
+    return individual
 
 # ==============================================================================
 # 6. COPIA PROFUNDA DE UN INDIVIDUO
@@ -302,6 +326,61 @@ def mutate_creep(individual, mutation_rate, creep_scale=0.025):
 def deep_copy_individual(individual):
     """Devuelve una copia completamente independiente del individuo."""
     return [list(point) for point in individual]
+
+def memetic_refinement(individual, bb_model, steps=5):
+    """
+    Aplica la búsqueda local binaria a TODOS los pares del individuo de golpe,
+    usando operaciones vectorizadas de NumPy para no perder rendimiento.
+    """
+    puntos = np.array(individual)
+    
+    # 1. Separar en p1s y p2s
+    p1s = puntos[0::2]
+    p2s = puntos[1::2]
+    
+    # 2. Predicción inicial en BATCH (igual que en tu fitness)
+    all_points = np.vstack([p1s, p2s])
+    all_preds  = bb_model.predict(all_points)
+    c1s = all_preds[:len(p1s)]
+    c2s = all_preds[len(p1s):]
+    
+    # 3. Filtrar: Solo nos interesan los pares que cruzan la frontera (clases distintas)
+    mask = (c1s != c2s)
+    
+    # Si ningún par cruza la frontera, devolvemos el individuo tal cual
+    if not np.any(mask):
+        return individual
+        
+    # Extraemos solo los puntos y clases que vamos a refinar
+    v_p1s = p1s[mask]
+    v_p2s = p2s[mask]
+    v_c1s = c1s[mask]
+    
+    # 4. Bucle de búsqueda binaria vectorizado
+    for _ in range(steps):
+        # Calcular todos los midpoints de golpe
+        midpoints = (v_p1s + v_p2s) / 2.0
+        
+        # Predecir todos los midpoints en una sola llamada a la BlackBox
+        mid_preds = bb_model.predict(midpoints)
+        
+        # Máscara booleana: ¿El midpoint tiene la misma clase que p1?
+        replace_p1_mask = (mid_preds == v_c1s)
+        
+        # Actualizamos p1 o p2 simultáneamente usando máscaras
+        v_p1s[replace_p1_mask] = midpoints[replace_p1_mask]
+        v_p2s[~replace_p1_mask] = midpoints[~replace_p1_mask]
+        
+    # 5. Volcar los puntos refinados de vuelta a sus arrays originales
+    p1s[mask] = v_p1s
+    p2s[mask] = v_p2s
+    
+    # 6. Reconstruir el individuo aplanado en formato lista de listas
+    refined_puntos = np.empty((len(puntos), 2))
+    refined_puntos[0::2] = p1s
+    refined_puntos[1::2] = p2s
+    
+    return refined_puntos.tolist()
 
 
 # ==============================================================================
@@ -314,8 +393,9 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
                           elite_pct=0.1):
     print(f"Iniciando Algoritmo Genético... [mutación: {mutation_method} | cruce: {crossover_method} | modelo: {model} | adaptive: {adaptive_pc_pm}]")
 
-    mutate    = mutate_random if mutation_method == 'random' else mutate_creep
-    crossover = uniform_crossover if crossover_method == 'uniform' else two_point_crossover
+    mutate    = mutate_random if mutation_method == 'random' else mutate_creep if mutation_method == 'creep' else mutate_creep_dynamic
+    crossover = (uniform_crossover if crossover_method == 'uniform'
+                else two_point_crossover)
 
     PC_MAX, PC_MIN = 0.8, 0.2
     DELTA = 0.05  # paso de ajuste por generación en modo 'improvement'
@@ -324,7 +404,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
     Pc = 0.5
     Pm = 0.5
 
-    population = initialize_population(pop_size, PUNTOS)
+    population = initialize_population(pop_size)
     fitnesses  = [evaluate_solution(ind) for ind in population]
     best_overall_individual = None
     best_overall_fitness = -float('inf')
@@ -354,7 +434,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
             print(f"Mejor Fitness de la generación: {best_gen_fitness:.4f}" +
                   (f"  [Pc={Pc:.2f} Pm={Pm:.2f}]" if adaptive_pc_pm else ""))
 
-            if best_gen_fitness > best_overall_fitness:
+            if (best_gen_fitness - best_overall_fitness) > 0.0001:
                 best_overall_fitness    = best_gen_fitness
                 best_overall_individual = deep_copy_individual(best_gen_individual)
                 no_improve = 0
@@ -380,7 +460,13 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
 
                 # Pm: probabilidad de mutar el individuo (muta un gen aleatorio)
                 if random.random() < Pm:
-                    child = mutate(child, mutation_rate)
+                    if mutation_method == 'creep_dynamic':
+                        child = mutate(child, mutation_rate, no_improve, PATIENCE)
+                    else:
+                        child = mutate(child, mutation_rate)
+
+                if random.random() < 0.1:                    # El hijo refina sus pares acercándolos a la frontera matemáticamente
+                    child = memetic_refinement(child, bb, steps=4)
 
                 new_population.append(child)
 
@@ -428,7 +514,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
     return best_overall_individual, best_overall_fitness
 
 
-def guardar_estadisticas_csv(num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
+def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
     """Guarda las estadísticas completas de las ejecuciones en un archivo CSV."""
     nombre_archivo = "estadisticas_experimentos.csv"
     file_exists = os.path.isfile(nombre_archivo)
@@ -438,6 +524,7 @@ def guardar_estadisticas_csv(num_puntos, num_ejecuciones, media_fit, std_fit, me
         # Si el archivo es nuevo, escribimos la cabecera
         if not file_exists:
             writer.writerow([
+                "Modelo",
                 "Num_Puntos", 
                 "Ejecuciones", 
                 "Media_Fitness", 
@@ -449,6 +536,7 @@ def guardar_estadisticas_csv(num_puntos, num_ejecuciones, media_fit, std_fit, me
         
         # Redondeamos los valores flotantes para que el CSV quede limpio
         writer.writerow([
+            modelo,
             num_puntos, 
             num_ejecuciones, 
             round(media_fit, 4), 

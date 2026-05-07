@@ -5,21 +5,34 @@ import os
 import csv
 import time
 from blackbox import BlackBoxModel
-from graficar import plot_individual_and_boundary
+from graficar import plot_individual_and_boundary_modeloA, plot_individual_and_boundary_modeloB
 
 # ==============================================================================
 # CONFIGURACIÓN GENERAL Y CONSTANTES
 # ==============================================================================
 
+if len(sys.argv) > 1:
+    try:
+        MODELO = sys.argv[1]
+    except ValueError:
+        print(f"Advertencia: '{sys.argv[1]}' no es un número válido. Usando 50 MODELO por defecto.")
+        MODELO = "A"
+else:
+    MODELO = "A"  # Valor por defecto si lo ejecutas sin argumentos
+
+#MODELO = "A"  # o "B" 
+
 MIN_PARES = 10   # mínimo 20 puntos
 MAX_PARES = 50   # máximo 100 puntos
 
 # Para A
-X_MIN, X_MAX = -3.5, 2.0
-Y_MIN, Y_MAX = -2.0, 3.5
-# Para B -1.5 1.5
-#X_MIN, X_MAX = -1.0, 1.0
-#Y_MIN, Y_MAX = -1.0, 1.0
+if MODELO == "A":
+    X_MIN, X_MAX = -3.5, 2.0
+    Y_MIN, Y_MAX = -2.0, 3.5
+# Para B 
+else:
+    X_MIN, X_MAX = -1.0, 1.0
+    Y_MIN, Y_MAX = -1.0, 1.0
 
 MAX_DISP_NORM = np.sqrt((X_MAX - X_MIN)**2 + (Y_MAX - Y_MIN)**2)
 
@@ -35,15 +48,17 @@ FACTOR_ESCALA = MAX_DISP_NORM / DIAGONAL_ORIGINAL
 # 3. Hiperparámetros base
 LAMBDA_BASE = 100.0
 DELTA_BASE  = 20.0
-MU_BASE     = 12.0
+MU_BASE     = 8.0
 
 # 4. Hiperparámetros ajustados
 LAMBDA = LAMBDA_BASE
 DELTA  = DELTA_BASE / FACTOR_ESCALA
 MU     = MU_BASE / FACTOR_ESCALA
-BONUS_POR_PUNTO = 0.0009  # Bonus leve por usar más puntos
 
-bb = BlackBoxModel("blackbox_modelA.pkl")
+if MODELO == "A":
+    bb = BlackBoxModel("blackbox_modelA.pkl")
+else:
+    bb = BlackBoxModel("blackbox_modelB.pkl")
 
 def main():
     # Pedir el número de iteraciones por teclado
@@ -56,8 +71,8 @@ def main():
         print("Valor inválido. Se ejecutará 1 vez por defecto.")
         n_reps = 1
 
-    poblacion_dinamica = 200    
-    generaciones_dinamicas = 600
+    poblacion = 200    
+    generaciones = 600
     
     # Listas para almacenar los resultados de cada iteración
     fitnesses_obtenidos = []
@@ -77,8 +92,8 @@ def main():
         start_time = time.time()
         
         mejor_ind, mejor_fit = run_genetic_algorithm(
-            pop_size=poblacion_dinamica, 
-            generations=generaciones_dinamicas, 
+            pop_size=poblacion, 
+            generations=generaciones, 
             mutation_method='creep_dynamic',
             crossover_method='uniform', 
             adaptive_pc_pm='improvement'
@@ -92,10 +107,20 @@ def main():
         tiempos_obtenidos.append(elapsed_time)
 
         # Comprobar si es el mejor histórico absoluto
-        if mejor_fit > mejor_fitness_global:
+        epsilon = 1e-5  # Margen para considerar dos floats como "iguales" (empate)
+        
+        if mejor_fit > mejor_fitness_global + epsilon:
+            # Si el fitness es claramente superior, actualizamos directamente
             mejor_fitness_global = mejor_fit
-            # Es vital usar deep_copy para no perder la referencia si el individuo muta luego
             mejor_individuo_global = deep_copy_individual(mejor_ind) 
+            print(f"  -> Nuevo MEJOR global encontrado: Fitness {mejor_fit:.4f} con {len(mejor_ind)} puntos.")
+            
+        elif abs(mejor_fit - mejor_fitness_global) <= epsilon:
+            # Si hay un empate técnico en fitness, miramos quién tiene más puntos
+            if mejor_individuo_global is not None and len(mejor_ind) > len(mejor_individuo_global):
+                mejor_fitness_global = mejor_fit
+                mejor_individuo_global = deep_copy_individual(mejor_ind)
+                print(f"  -> Empate en fitness ({mejor_fit:.4f}). Actualizado por tener MÁS puntos: {len(mejor_ind)}.")
 
     # --- CÁLCULO DE ESTADÍSTICAS ---
     media_fitness = np.mean(fitnesses_obtenidos)
@@ -112,11 +137,14 @@ def main():
     print("*"*50)
 
     # Guardar en CSV
-    guardar_estadisticas_csv(len(mejor_individuo_global), n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
+    guardar_estadisticas_csv(MODELO, len(mejor_individuo_global), n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
 
     # Pintar solo la mejor solución global encontrada
     if mejor_individuo_global is not None:
-        plot_individual_and_boundary(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+        if MODELO == "A":
+            plot_individual_and_boundary_modeloA(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+        else:
+            plot_individual_and_boundary_modeloB(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
 
 
 # ==============================================================================
@@ -195,8 +223,11 @@ def evaluate_solution(params):
 
     # 4. Calcular el fitness final sumando los arrays vectorizados
     fitness_por_par = (-DELTA * dists - p_clases + MU * disps_normalizadas) / num_pares
-    
+
     total_fitness = np.sum(fitness_por_par)
+
+    BONO_POR_PAR = 0.035 
+    total_fitness = total_fitness + (num_pares * BONO_POR_PAR)
 
     return total_fitness
 
@@ -204,7 +235,7 @@ def evaluate_solution(params):
 # 3. OPERADORES DE SELECCIÓN
 # ==============================================================================
 
-def tournament_selection(population, fitnesses, k=3, tolerance=0.2):
+def tournament_selection(population, fitnesses, k=3, tolerance=0.05):
     """
     Selecciona un padre mediante torneo de tamaño k.
     Si el mejor individuo y otros tienen un fitness muy similar (dentro
@@ -308,7 +339,7 @@ def uniform_crossover(parent1, parent2):
     # 3. Tratamiento de los genes excedentes del padre más largo
     padre_largo = pares_p1 if len(pares_p1) > len(pares_p2) else pares_p2
     for i in range(min_len, max_len):
-        # 50% de probabilidad de heredar cada par extra (regula el tamaño final)
+        # 60% de probabilidad de heredar cada par extra (regula el tamaño final)
         if random.random() < 0.5:
             child_pares.append([list(padre_largo[i][0]), list(padre_largo[i][1])])
 
@@ -563,7 +594,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
     return best_overall_individual, best_overall_fitness
 
 
-def guardar_estadisticas_csv(num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
+def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
     """Guarda las estadísticas completas de las ejecuciones en un archivo CSV."""
     nombre_archivo = "estadisticas_experimentos.csv"
     file_exists = os.path.isfile(nombre_archivo)
@@ -573,6 +604,7 @@ def guardar_estadisticas_csv(num_puntos, num_ejecuciones, media_fit, std_fit, me
         # Si el archivo es nuevo, escribimos la cabecera
         if not file_exists:
             writer.writerow([
+                "Modelo",
                 "Num_Puntos", 
                 "Ejecuciones", 
                 "Media_Fitness", 
@@ -584,6 +616,7 @@ def guardar_estadisticas_csv(num_puntos, num_ejecuciones, media_fit, std_fit, me
         
         # Redondeamos los valores flotantes para que el CSV quede limpio
         writer.writerow([
+            modelo,
             num_puntos, 
             num_ejecuciones, 
             round(media_fit, 4), 

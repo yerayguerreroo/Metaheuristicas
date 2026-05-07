@@ -3,7 +3,7 @@
 echo "Iniciando bateria de pruebas..."
 
 # Lista de puntos a evaluar
-PUNTOS_LIST=(10 20 30 40 50)
+PUNTOS_LIST=(A A A A A B B B B B)
 
 for p in "${PUNTOS_LIST[@]}"
 do
@@ -11,7 +11,7 @@ do
     echo "=================================================="
     echo "Ejecutando el algoritmo con $p puntos..."
     echo "=================================================="
-    echo "5" | python3 main.py $p
+    echo "10" | python3 main_sin_numero_puntos.py $p
 done
 
 echo ""
