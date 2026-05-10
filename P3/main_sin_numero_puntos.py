@@ -11,14 +11,20 @@ from graficar import plot_individual_and_boundary_modeloA, plot_individual_and_b
 # CONFIGURACIÓN GENERAL Y CONSTANTES
 # ==============================================================================
 
-if len(sys.argv) > 1:
+if len(sys.argv) >= 4:
+    MODELO = sys.argv[1].upper()
     try:
-        MODELO = sys.argv[1]
+        GENERACIONES_CLI = int(sys.argv[2])
+        POBLACION_CLI = int(sys.argv[3])
     except ValueError:
-        print(f"Advertencia: '{sys.argv[1]}' no es un número válido. Usando 50 MODELO por defecto.")
-        MODELO = "A"
+        print("Error: Generaciones y Población deben ser números enteros.")
+        sys.exit(1)
 else:
-    MODELO = "A"  # Valor por defecto si lo ejecutas sin argumentos
+    print("\nUso incorrecto. Formato: python3 main.py <modelo: A/B> <generaciones> <poblacion>")
+    print("Ejecutando con valores por defecto: A 600 200\n")
+    MODELO = "A"
+    GENERACIONES_CLI = 600
+    POBLACION_CLI = 200
 
 #MODELO = "A"  # o "B" 
 
@@ -49,6 +55,7 @@ FACTOR_ESCALA = MAX_DISP_NORM / DIAGONAL_ORIGINAL
 LAMBDA_BASE = 100.0
 DELTA_BASE  = 20.0
 MU_BASE     = 8.0
+BONO_POR_PAR = 0.035
 
 # 4. Hiperparámetros ajustados
 LAMBDA = LAMBDA_BASE
@@ -71,8 +78,8 @@ def main():
         print("Valor inválido. Se ejecutará 1 vez por defecto.")
         n_reps = 1
 
-    poblacion = 200    
-    generaciones = 600
+    poblacion = POBLACION_CLI  
+    generaciones = GENERACIONES_CLI
     
     # Listas para almacenar los resultados de cada iteración
     fitnesses_obtenidos = []
@@ -93,10 +100,11 @@ def main():
         
         mejor_ind, mejor_fit = run_genetic_algorithm(
             pop_size=poblacion, 
-            generations=generaciones, 
+            generations=generaciones,
+            selection_method='tournament_tolerance', 
             mutation_method='creep_dynamic',
             crossover_method='uniform', 
-            adaptive_pc_pm='improvement'
+            adaptive_pc_pm='improvement',
         )
         
         end_time = time.time()
@@ -137,14 +145,14 @@ def main():
     print("*"*50)
 
     # Guardar en CSV
-    guardar_estadisticas_csv(MODELO, len(mejor_individuo_global), n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
+    guardar_estadisticas_csv(MODELO, generaciones, poblacion, len(mejor_individuo_global), n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
 
     # Pintar solo la mejor solución global encontrada
     if mejor_individuo_global is not None:
         if MODELO == "A":
-            plot_individual_and_boundary_modeloA(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+            plot_individual_and_boundary_modeloA(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX, generaciones, poblacion)
         else:
-            plot_individual_and_boundary_modeloB(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+            plot_individual_and_boundary_modeloB(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX, generaciones, poblacion)
 
 
 # ==============================================================================
@@ -226,7 +234,6 @@ def evaluate_solution(params):
 
     total_fitness = np.sum(fitness_por_par)
 
-    BONO_POR_PAR = 0.035 
     total_fitness = total_fitness + (num_pares * BONO_POR_PAR)
 
     return total_fitness
@@ -235,7 +242,14 @@ def evaluate_solution(params):
 # 3. OPERADORES DE SELECCIÓN
 # ==============================================================================
 
-def tournament_selection(population, fitnesses, k=3, tolerance=0.05):
+def tournament_selection(population, fitnesses, k=3):
+    """Selecciona un padre mediante torneo de tamaño k"""
+    selected_indices = random.sample(range(len(population)), k)
+    best_index = max(selected_indices, key=lambda idx: fitnesses[idx])
+    return population[best_index]
+
+
+def tournament_selection_tolerance(population, fitnesses, k=3, tolerance=0.05):
     """
     Selecciona un padre mediante torneo de tamaño k.
     Si el mejor individuo y otros tienen un fitness muy similar (dentro
@@ -469,10 +483,11 @@ def memetic_refinement(individual, bb_model, steps=5):
 
 def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
                           mutation_method='random', crossover_method='random_size',
-                          model='generational', adaptive_pc_pm='improvement',
+                          selection_method='tournament',model='generational', adaptive_pc_pm='improvement',
                           elite_pct=0.1):
     print(f"Iniciando Algoritmo Genético... [mutación: {mutation_method} | cruce: {crossover_method} | modelo: {model} | adaptive: {adaptive_pc_pm}]")
 
+    seleccion = tournament_selection if selection_method == 'tournament' else tournament_selection_tolerance
     mutate    = mutate_random if mutation_method == 'random' else mutate_creep if mutation_method == 'creep' else mutate_creep_dynamic
     crossover = (uniform_crossover if crossover_method == 'uniform'
                 else random_size_pool_crossover)
@@ -529,8 +544,8 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
             elite_indices = sorted(range(len(fitnesses)), key=lambda i: fitnesses[i], reverse=True)[:n_elite]
             new_population = [deep_copy_individual(population[i]) for i in elite_indices]
             while len(new_population) < pop_size:
-                parent1 = tournament_selection(population, fitnesses)
-                parent2 = tournament_selection(population, fitnesses)
+                parent1 = seleccion(population, fitnesses)
+                parent2 = seleccion(population, fitnesses)
 
                 # Pc: probabilidad de cruzar; si no, el hijo es copia del parent1
                 if random.random() < Pc:
@@ -566,10 +581,15 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
         else:  # steady-state
             # Cada "generación" = pop_size reemplazos → mismo nº de evaluaciones que generacional
             for _ in range(pop_size):
-                parent1 = tournament_selection(population, fitnesses)
-                parent2 = tournament_selection(population, fitnesses)
+                parent1 = seleccion(population, fitnesses)
+                parent2 = seleccion(population, fitnesses)
                 child   = crossover(parent1, parent2)
-                child   = mutate(child, mutation_rate)
+                if mutation_method == 'creep_dynamic':
+                        child = mutate(child, mutation_rate, no_improve, PATIENCE)
+                else:
+                    child = mutate(child, mutation_rate)
+                if random.random() < 0.1:                    # El hijo refina sus pares acercándolos a la frontera matemáticamente
+                    child = memetic_refinement(child, bb, steps=4)
                 child_fitness = evaluate_solution(child)
 
                 # Reemplazar al peor (nunca al mejor — elitismo implícito)
@@ -586,6 +606,13 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
             if best_gen_fitness > best_overall_fitness:
                 best_overall_fitness    = best_gen_fitness
                 best_overall_individual = list(population[best_gen_idx])
+                no_improve = 0
+            else:
+                no_improve += 1
+
+            if no_improve >= PATIENCE:
+                print(f"  Parada anticipada (sin mejora en {PATIENCE} generaciones consecutivas)")
+                break
 
     print("\n=== FIN DE LA EJECUCIÓN ===")
     print(f"Mejor Fitness Global: {best_overall_fitness:.4f}")
@@ -594,7 +621,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
     return best_overall_individual, best_overall_fitness
 
 
-def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
+def guardar_estadisticas_csv(modelo, generaciones, poblacion, num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
     """Guarda las estadísticas completas de las ejecuciones en un archivo CSV."""
     nombre_archivo = "estadisticas_experimentos.csv"
     file_exists = os.path.isfile(nombre_archivo)
@@ -605,6 +632,8 @@ def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std
         if not file_exists:
             writer.writerow([
                 "Modelo",
+                "Generaciones",
+                "Poblacion",
                 "Num_Puntos", 
                 "Ejecuciones", 
                 "Media_Fitness", 
@@ -614,9 +643,11 @@ def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std
                 "Mejor_Fitness_Global"
             ])
         
-        # Redondeamos los valores flotantes para que el CSV quede limpio
+        # Escribimos los datos de la ejecución
         writer.writerow([
             modelo,
+            generaciones,
+            poblacion,
             num_puntos, 
             num_ejecuciones, 
             round(media_fit, 4), 

@@ -1,4 +1,4 @@
-def plot_individual_and_boundary_modeloA(individual, model, x_min, x_max, y_min, y_max, resolution=300,
+def plot_individual_and_boundary_modeloA(individual, model, x_min, x_max, y_min, y_max, generaciones, poblacion, resolution=300,
                                  title="Frontera de decisión y pares de puntos"):
     """
     Dibuja la frontera de decisión del modelo, los pares de puntos de un individuo
@@ -138,7 +138,7 @@ def plot_individual_and_boundary_modeloA(individual, model, x_min, x_max, y_min,
     num_puntos = len(individual)
     
     # Guardamos la figura en la carpeta actual
-    nombre_archivo = f"A_frontera_{num_puntos}_puntos.png"
+    nombre_archivo = f"A_frontera_{num_puntos}_puntos_{generaciones}_{poblacion}.png"
     plt.savefig(nombre_archivo, dpi=300, bbox_inches='tight')
     
     print(f"\n[INFO] Gráfico guardado como: {nombre_archivo}")
@@ -149,7 +149,7 @@ def plot_individual_and_boundary_modeloA(individual, model, x_min, x_max, y_min,
     plt.show()
 
 
-def plot_individual_and_boundary_modeloB(individual, model, x_min, x_max, y_min, y_max, resolution=300,
+def plot_individual_and_boundary_modeloB(individual, model, x_min, x_max, y_min, y_max, generaciones, poblacion, resolution=300,
                                  title="Frontera de decisión y pares de puntos"):
     """
     Dibuja la frontera de decisión del modelo, los pares de puntos de un individuo
@@ -258,7 +258,7 @@ def plot_individual_and_boundary_modeloB(individual, model, x_min, x_max, y_min,
     num_puntos = len(individual)
     
     # Guardamos la figura en la carpeta actual
-    nombre_archivo = f"B_frontera_{num_puntos}_puntos.png"
+    nombre_archivo = f"B_frontera_{num_puntos}_puntos_{generaciones}_{poblacion}.png"
     plt.savefig(nombre_archivo, dpi=300, bbox_inches='tight')
     
     print(f"\n[INFO] Gráfico guardado como: {nombre_archivo}")
