@@ -24,9 +24,8 @@ else:
     print("Ejecutando con valores por defecto: A 600 200\n")
     MODELO = "A"
     GENERACIONES_CLI = 600
-    POBLACION_CLI = 200
+    POBLACION_CLI = 250
 
-#MODELO = "A"  # o "B" 
 
 MIN_PARES = 10   # mínimo 20 puntos
 MAX_PARES = 50   # máximo 100 puntos
@@ -363,7 +362,7 @@ def uniform_crossover(parent1, parent2):
     return child
 
 # ==============================================================================
-# 4. OPERADORES DE MUTACIÓN
+# 5. OPERADORES DE MUTACIÓN
 # ==============================================================================
 
 def mutate_random(individual, mutation_rate):
@@ -421,7 +420,11 @@ def deep_copy_individual(individual):
     """Devuelve una copia completamente independiente del individuo."""
     return [list(point) for point in individual]
 
-def memetic_refinement(individual, bb_model, steps=5, step_size=0.05):
+# ==============================================================================
+# 7. REFINAMIENTO POR HILL CLIMBING
+# ==============================================================================
+
+def hill_climbing_refinement(individual, bb_model, steps=5, step_size=0.05):
     """
     Aplica una búsqueda local estocástica (Hill Climbing) a TODOS los pares 
     del individuo de golpe, usando operaciones vectorizadas.
@@ -498,7 +501,7 @@ def memetic_refinement(individual, bb_model, steps=5, step_size=0.05):
 
 
 # ==============================================================================
-# 5. BUCLE PRINCIPAL DEL ALGORITMO GENÉTICO
+# 8. BUCLE PRINCIPAL DEL ALGORITMO GENÉTICO
 # ==============================================================================
 
 def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
@@ -580,8 +583,9 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
                     else:
                         child = mutate(child, mutation_rate)
 
-                if random.random() < 0.1:                    # El hijo refina sus pares acercándolos a la frontera matemáticamente
-                    child = memetic_refinement(child, bb, steps=4)
+                # El hijo refina sus pares acercándolos a la frontera
+                if random.random() < 0.1:                    
+                    child = hill_climbing_refinement(child, bb, steps=4)
 
                 new_population.append(child)
 
@@ -609,7 +613,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
                 else:
                     child = mutate(child, mutation_rate)
                 if random.random() < 0.1:                    # El hijo refina sus pares acercándolos a la frontera matemáticamente
-                    child = memetic_refinement(child, bb, steps=4)
+                    child = hill_climbing_refinement(child, bb, steps=4)
                 child_fitness = evaluate_solution(child)
 
                 # Reemplazar al peor (nunca al mejor — elitismo implícito)
@@ -640,6 +644,11 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
 
     return best_overall_individual, best_overall_fitness
 
+
+
+# ==============================================================================
+# 9. GUARDADO DE ESTADÍSTICAS EN CSV
+# ==============================================================================
 
 def guardar_estadisticas_csv(modelo, generaciones, poblacion, num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
     """Guarda las estadísticas completas de las ejecuciones en un archivo CSV."""
