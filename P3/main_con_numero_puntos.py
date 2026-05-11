@@ -136,14 +136,14 @@ def main():
     print("*"*50)
 
     # Guardar en CSV
-    guardar_estadisticas_csv(MODELO, len(mejor_individuo_global), n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
+    guardar_estadisticas_csv(MODELO, generaciones, poblacion, len(mejor_individuo_global), n_reps, media_fitness, std_fitness, media_tiempo, std_tiempo, mejor_fitness_global)
 
     # Pintar solo la mejor solución global encontrada
     if mejor_individuo_global is not None:
         if MODELO == "A":
-            plot_individual_and_boundary_modeloA(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+            plot_individual_and_boundary_modeloA(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX, generaciones, poblacion)
         else:
-            plot_individual_and_boundary_modeloB(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX)
+            plot_individual_and_boundary_modeloB(mejor_individuo_global, bb, X_MIN, X_MAX, Y_MIN, Y_MAX, generaciones, poblacion)
 
 
 # ==============================================================================
@@ -269,7 +269,7 @@ def two_point_crossover(parent1, parent2):
     return child
 
 # ==============================================================================
-# 4. OPERADORES DE MUTACIÓN
+# 5. OPERADORES DE MUTACIÓN
 # ==============================================================================
 
 def mutate_random(individual, mutation_rate):
@@ -327,10 +327,14 @@ def deep_copy_individual(individual):
     """Devuelve una copia completamente independiente del individuo."""
     return [list(point) for point in individual]
 
-def memetic_refinement(individual, bb_model, steps=5):
+# ==============================================================================
+# 7. REFINAMIENTO POR HILL CLIMBING
+# ==============================================================================
+
+def hill_climbing_refinement(individual, bb_model, steps=5, step_size=0.05):
     """
-    Aplica la búsqueda local binaria a TODOS los pares del individuo de golpe,
-    usando operaciones vectorizadas de NumPy para no perder rendimiento.
+    Aplica una búsqueda local estocástica (Hill Climbing) a TODOS los pares 
+    del individuo de golpe, usando operaciones vectorizadas.
     """
     puntos = np.array(individual)
     
@@ -338,7 +342,7 @@ def memetic_refinement(individual, bb_model, steps=5):
     p1s = puntos[0::2]
     p2s = puntos[1::2]
     
-    # 2. Predicción inicial en BATCH (igual que en tu fitness)
+    # 2. Predicción inicial en BATCH
     all_points = np.vstack([p1s, p2s])
     all_preds  = bb_model.predict(all_points)
     c1s = all_preds[:len(p1s)]
@@ -351,25 +355,45 @@ def memetic_refinement(individual, bb_model, steps=5):
     if not np.any(mask):
         return individual
         
-    # Extraemos solo los puntos y clases que vamos a refinar
+    # Extraemos solo los puntos que vamos a refinar
     v_p1s = p1s[mask]
     v_p2s = p2s[mask]
-    v_c1s = c1s[mask]
     
-    # 4. Bucle de búsqueda binaria vectorizado
+    # 4. Bucle de Búsqueda Local Estocástica (Hill Climbing)
     for _ in range(steps):
-        # Calcular todos los midpoints de golpe
-        midpoints = (v_p1s + v_p2s) / 2.0
+        # Calculamos las distancias actuales de los pares
+        current_dists = np.linalg.norm(v_p1s - v_p2s, axis=1)
         
-        # Predecir todos los midpoints en una sola llamada a la BlackBox
-        mid_preds = bb_model.predict(midpoints)
+        # Generamos "vecinos" aplicando ruido gaussiano (perturbación aleatoria)
+        noise_p1 = np.random.normal(0, step_size, v_p1s.shape)
+        noise_p2 = np.random.normal(0, step_size, v_p2s.shape)
         
-        # Máscara booleana: ¿El midpoint tiene la misma clase que p1?
-        replace_p1_mask = (mid_preds == v_c1s)
+        new_p1s = v_p1s + noise_p1
+        new_p2s = v_p2s + noise_p2
         
-        # Actualizamos p1 o p2 simultáneamente usando máscaras
-        v_p1s[replace_p1_mask] = midpoints[replace_p1_mask]
-        v_p2s[~replace_p1_mask] = midpoints[~replace_p1_mask]
+        # Respetar los límites del espacio de búsqueda (usando globales)
+        new_p1s[:, 0] = np.clip(new_p1s[:, 0], X_MIN, X_MAX)
+        new_p1s[:, 1] = np.clip(new_p1s[:, 1], Y_MIN, Y_MAX)
+        new_p2s[:, 0] = np.clip(new_p2s[:, 0], X_MIN, X_MAX)
+        new_p2s[:, 1] = np.clip(new_p2s[:, 1], Y_MIN, Y_MAX)
+        
+        # Predecir las clases de los nuevos vecinos
+        all_new = np.vstack([new_p1s, new_p2s])
+        preds = bb_model.predict(all_new)
+        new_c1s = preds[:len(new_p1s)]
+        new_c2s = preds[len(new_p1s):]
+        
+        # Calcular las nuevas distancias
+        new_dists = np.linalg.norm(new_p1s - new_p2s, axis=1)
+        
+        # CRITERIO DE ACEPTACIÓN (Hill Climbing):
+        # 1. Los nuevos puntos deben seguir cruzando la frontera (clases distintas)
+        # 2. La nueva distancia debe ser MENOR que la anterior (mejora de fitness local)
+        mejora_mask = (new_c1s != new_c2s) & (new_dists < current_dists)
+        
+        # Actualizamos SOLO las parejas que encontraron un vecino mejor
+        v_p1s[mejora_mask] = new_p1s[mejora_mask]
+        v_p2s[mejora_mask] = new_p2s[mejora_mask]
         
     # 5. Volcar los puntos refinados de vuelta a sus arrays originales
     p1s[mask] = v_p1s
@@ -466,7 +490,7 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
                         child = mutate(child, mutation_rate)
 
                 if random.random() < 0.1:                    # El hijo refina sus pares acercándolos a la frontera matemáticamente
-                    child = memetic_refinement(child, bb, steps=4)
+                    child = hill_climbing_refinement(child, bb, steps=4)
 
                 new_population.append(child)
 
@@ -489,7 +513,12 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
                 parent1 = tournament_selection(population, fitnesses)
                 parent2 = tournament_selection(population, fitnesses)
                 child   = crossover(parent1, parent2)
-                child   = mutate(child, mutation_rate)
+                if mutation_method == 'creep_dynamic':
+                        child = mutate(child, mutation_rate, no_improve, PATIENCE)
+                else:
+                    child = mutate(child, mutation_rate)
+                if random.random() < 0.1:                    # El hijo refina sus pares acercándolos a la frontera matemáticamente
+                    child = hill_climbing_refinement(child, bb, steps=4)
                 child_fitness = evaluate_solution(child)
 
                 # Reemplazar al peor (nunca al mejor — elitismo implícito)
@@ -513,8 +542,11 @@ def run_genetic_algorithm(pop_size=20, generations=50, mutation_rate=0.1,
 
     return best_overall_individual, best_overall_fitness
 
+# ==============================================================================
+# 9. GUARDADO DE ESTADÍSTICAS EN CSV
+# ==============================================================================
 
-def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
+def guardar_estadisticas_csv(modelo, generaciones, poblacion, num_puntos, num_ejecuciones, media_fit, std_fit, media_time, std_time, mejor_fit):
     """Guarda las estadísticas completas de las ejecuciones en un archivo CSV."""
     nombre_archivo = "estadisticas_experimentos.csv"
     file_exists = os.path.isfile(nombre_archivo)
@@ -525,6 +557,8 @@ def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std
         if not file_exists:
             writer.writerow([
                 "Modelo",
+                "Generaciones",
+                "Poblacion",
                 "Num_Puntos", 
                 "Ejecuciones", 
                 "Media_Fitness", 
@@ -534,9 +568,11 @@ def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std
                 "Mejor_Fitness_Global"
             ])
         
-        # Redondeamos los valores flotantes para que el CSV quede limpio
+        # Escribimos los datos de la ejecución
         writer.writerow([
             modelo,
+            generaciones,
+            poblacion,
             num_puntos, 
             num_ejecuciones, 
             round(media_fit, 4), 
@@ -546,7 +582,6 @@ def guardar_estadisticas_csv(modelo, num_puntos, num_ejecuciones, media_fit, std
             round(mejor_fit, 4)
         ])
     print(f"\n[INFO] Estadísticas guardadas correctamente en '{nombre_archivo}'")
-
 
 if __name__ == "__main__":
     main()
