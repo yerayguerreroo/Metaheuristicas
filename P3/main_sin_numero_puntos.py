@@ -421,10 +421,10 @@ def deep_copy_individual(individual):
     """Devuelve una copia completamente independiente del individuo."""
     return [list(point) for point in individual]
 
-def memetic_refinement(individual, bb_model, steps=5):
+def memetic_refinement(individual, bb_model, steps=5, step_size=0.05):
     """
-    Aplica la búsqueda local binaria a TODOS los pares del individuo de golpe,
-    usando operaciones vectorizadas de NumPy para no perder rendimiento.
+    Aplica una búsqueda local estocástica (Hill Climbing) a TODOS los pares 
+    del individuo de golpe, usando operaciones vectorizadas.
     """
     puntos = np.array(individual)
     
@@ -432,7 +432,7 @@ def memetic_refinement(individual, bb_model, steps=5):
     p1s = puntos[0::2]
     p2s = puntos[1::2]
     
-    # 2. Predicción inicial en BATCH (igual que en tu fitness)
+    # 2. Predicción inicial en BATCH
     all_points = np.vstack([p1s, p2s])
     all_preds  = bb_model.predict(all_points)
     c1s = all_preds[:len(p1s)]
@@ -445,25 +445,45 @@ def memetic_refinement(individual, bb_model, steps=5):
     if not np.any(mask):
         return individual
         
-    # Extraemos solo los puntos y clases que vamos a refinar
+    # Extraemos solo los puntos que vamos a refinar
     v_p1s = p1s[mask]
     v_p2s = p2s[mask]
-    v_c1s = c1s[mask]
     
-    # 4. Bucle de búsqueda binaria vectorizado
+    # 4. Bucle de Búsqueda Local Estocástica (Hill Climbing)
     for _ in range(steps):
-        # Calcular todos los midpoints de golpe
-        midpoints = (v_p1s + v_p2s) / 2.0
+        # Calculamos las distancias actuales de los pares
+        current_dists = np.linalg.norm(v_p1s - v_p2s, axis=1)
         
-        # Predecir todos los midpoints en una sola llamada a la BlackBox
-        mid_preds = bb_model.predict(midpoints)
+        # Generamos "vecinos" aplicando ruido gaussiano (perturbación aleatoria)
+        noise_p1 = np.random.normal(0, step_size, v_p1s.shape)
+        noise_p2 = np.random.normal(0, step_size, v_p2s.shape)
         
-        # Máscara booleana: ¿El midpoint tiene la misma clase que p1?
-        replace_p1_mask = (mid_preds == v_c1s)
+        new_p1s = v_p1s + noise_p1
+        new_p2s = v_p2s + noise_p2
         
-        # Actualizamos p1 o p2 simultáneamente usando máscaras
-        v_p1s[replace_p1_mask] = midpoints[replace_p1_mask]
-        v_p2s[~replace_p1_mask] = midpoints[~replace_p1_mask]
+        # Respetar los límites del espacio de búsqueda (usando globales)
+        new_p1s[:, 0] = np.clip(new_p1s[:, 0], X_MIN, X_MAX)
+        new_p1s[:, 1] = np.clip(new_p1s[:, 1], Y_MIN, Y_MAX)
+        new_p2s[:, 0] = np.clip(new_p2s[:, 0], X_MIN, X_MAX)
+        new_p2s[:, 1] = np.clip(new_p2s[:, 1], Y_MIN, Y_MAX)
+        
+        # Predecir las clases de los nuevos vecinos
+        all_new = np.vstack([new_p1s, new_p2s])
+        preds = bb_model.predict(all_new)
+        new_c1s = preds[:len(new_p1s)]
+        new_c2s = preds[len(new_p1s):]
+        
+        # Calcular las nuevas distancias
+        new_dists = np.linalg.norm(new_p1s - new_p2s, axis=1)
+        
+        # CRITERIO DE ACEPTACIÓN (Hill Climbing):
+        # 1. Los nuevos puntos deben seguir cruzando la frontera (clases distintas)
+        # 2. La nueva distancia debe ser MENOR que la anterior (mejora de fitness local)
+        mejora_mask = (new_c1s != new_c2s) & (new_dists < current_dists)
+        
+        # Actualizamos SOLO las parejas que encontraron un vecino mejor
+        v_p1s[mejora_mask] = new_p1s[mejora_mask]
+        v_p2s[mejora_mask] = new_p2s[mejora_mask]
         
     # 5. Volcar los puntos refinados de vuelta a sus arrays originales
     p1s[mask] = v_p1s
